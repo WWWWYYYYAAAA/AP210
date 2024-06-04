@@ -49,6 +49,9 @@ struct AccelGyroData_int32_t get_raw_mpu6050_data32()
 
 void MPU_OFFSET()
 {
+    printf("Begin to Caliberate the IMU in 1000ms\n");
+    vTaskDelay(1000/portTICK_PERIOD_MS);
+    printf("Begin\n");
     for(int i=0; i<CALIB_TIMES; i++)
     {
         struct AccelGyroData_int32_t data = get_raw_mpu6050_data32();
@@ -58,7 +61,7 @@ void MPU_OFFSET()
         OFFSET_RAW.gyroX += data.gyroX;
         OFFSET_RAW.gyroY += data.gyroY;
         OFFSET_RAW.gyroZ += data.gyroZ;
-        vTaskDelay(50 / portTICK_PERIOD_MS);
+        vTaskDelay(25 / portTICK_PERIOD_MS);
     }
     OFFSET_RAW.accelX /= CALIB_TIMES;
     OFFSET_RAW.accelY /= CALIB_TIMES;
@@ -66,9 +69,14 @@ void MPU_OFFSET()
     OFFSET_RAW.gyroX /= CALIB_TIMES;
     OFFSET_RAW.gyroY /= CALIB_TIMES;
     OFFSET_RAW.gyroZ /= CALIB_TIMES;
-    OFFSET_RAW.accelZ -= accel_scale;
+    printf("%d\n", OFFSET_RAW.accelZ);
+    OFFSET_RAW.accelZ = OFFSET_RAW.accelZ - 16384;
+    printf("%d %d %d\n%d %d% d\n", OFFSET_RAW.accelX, OFFSET_RAW.accelY, OFFSET_RAW.accelZ, OFFSET_RAW.gyroX, OFFSET_RAW.gyroY, OFFSET_RAW.gyroZ);
     printf("OFFSET COLLECTED\n");
 }
+// 410 274 1305
+// -309 -73-3
+
 
 struct AccelGyroData_int32_t get_calibration_data()
 {

@@ -17,14 +17,14 @@
 #include "imu.h"
 
 SBUS RC_DATA = {0};
-struct AccelGyroData_int32_t OFFSET_RAW = {0, 0, 0, 0, 0, 0};
+struct AccelGyroData_int32_t OFFSET_RAW = {410, 274, 1305, -309, -73, -3};
 uint8_t RC_CHECK = 63;
 double G = 9.80665;
 double PI = 3.1415926535;
 float accel_scale=16384;
 float gyro_scale=7509.872412338726;
 int YAW_CAL = 0;
-
+struct AccelGyroPHYSICSData PYHdata;
 
 void HW_init()
 {
@@ -135,6 +135,7 @@ void HW_init()
 
     accel_scale=16384; //+-2G
     gyro_scale=7509.872412338726; //+-250 /rad
+
     //init HMC5883L
     // uint8_t reg_A[] = {0, 0b01110000};
     // uint8_t reg_B[] = {1, 0b00100000};
@@ -144,7 +145,8 @@ void HW_init()
     // write_register(HMC5883_ADDR, reg_mod);
     // init BMP180
     //不想配了，反正不准
-
+    //caliberate the mpu6050
+    //MPU_OFFSET();
 }
 
 static void rx_task(void *arg)
@@ -257,7 +259,6 @@ static void motor_out_task(void *arg)
 
 static void get_imu_task(void *arg)
 {
-    struct AccelGyroPHYSICSData data;
     //struct AccelGyroData_t imu_data_raw = {0};
     while (1)
     {
@@ -270,17 +271,15 @@ static void get_imu_task(void *arg)
         // }
         // printf("\n");
         //read_register_stream();
-        data = get_PHYSICS_Data();
+        PYHdata = get_PHYSICS_Data();
         printf("##################\n");
-        printf("%f\n", data.accelX);
-        printf("%f\n", data.accelY);
-        printf("%f\n", data.accelZ);
-        printf("%f\n", data.roll*180.0/PI);
-        printf("%f\n", data.pitch*180.0/PI);
-        printf("%f\n", data.yaw*180.0/PI);
+        printf("%f\n", PYHdata.accelX);
+        printf("%f\n", PYHdata.accelY);
+        printf("%f\n", PYHdata.accelZ);
+        printf("%f\n", PYHdata.roll*180.0/PI);
+        printf("%f\n", PYHdata.pitch*180.0/PI);
+        printf("%f\n", PYHdata.yaw*180.0/PI);
         printf("##################\n");
-        vTaskDelay(300 / portTICK_PERIOD_MS);
-
         vTaskDelay(200/portTICK_PERIOD_MS);
     }
 }

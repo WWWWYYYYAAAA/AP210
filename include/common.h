@@ -7,7 +7,7 @@
 //imu_param
 #define MPU_ADDR 0x68
 #define HMC5883_ADDR 0X3C
-#define CALIB_TIMES 50
+#define CALIB_TIMES 100
 
 struct AccelGyroData_t
 {
