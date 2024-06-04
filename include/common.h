@@ -73,4 +73,24 @@ typedef struct sbus_channel_16{
     uint16_t CH16;
 }SBUS;
 
+typedef struct attitude{
+    float roll;
+    float pitch;
+    float yaw;
+}Attitude;
+
+typedef struct motor_delta{
+    float throttle;
+    float Droll;
+    float Dpitch;
+    float Dyaw;
+    float KT, KR, KP, KY;
+}DMotor;
+
+/*
+|M1|        |+1 -1 +1 +1| |throttle |       M3      M1
+|M2|    __  |+1 +1 -1 +1| |Droll    |          \--/
+|M3|    --  |+1 +1 +1 -1| |Dpitch   |          /--\
+|M4|        |+1 -1 -1 -1| |Dyaw     |       M2      M4
+*/
 #endif

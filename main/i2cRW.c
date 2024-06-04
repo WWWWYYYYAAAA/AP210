@@ -1,5 +1,4 @@
-#include <stdio.h>
-#include "driver/i2c.h"
+#include "i2cRW.h"
 
 void write_register(uint8_t address, uint8_t *data){
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();

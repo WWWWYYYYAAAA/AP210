@@ -214,6 +214,7 @@ static void motor_out_task(void *arg)
 {
     MOTOR  MOUT= {410, 410, 410, 410};
     u_int8_t flag_start_check = 1;
+    DMotor motor_delta = {0, 0, 0, 0, 1, 0.3, 0.3, 0.3};   //ROLL PITCH YAW
     while (1)
     {
         if(RC_DATA.CH7 <= 400 && RC_CHECK == 0){
@@ -227,10 +228,38 @@ static void motor_out_task(void *arg)
             }
             else
             {
-                MOUT.motor_1 = 1.0 * ((int)(RC_DATA.CH3 - 200))*410*0.9/1600+410+41;
-                MOUT.motor_2 = 1.0 * ((int)(RC_DATA.CH3 - 200))*410*0.9/1600+410+41;
-                MOUT.motor_3 = 1.0 * ((int)(RC_DATA.CH3 - 200))*410*0.9/1600+410+41;
-                MOUT.motor_4 = 1.0 * ((int)(RC_DATA.CH3 - 200))*410*0.9/1600+410+41;
+                motor_delta.throttle = RC_DATA.CH3-200;
+                motor_delta.Droll = RC_DATA.CH1-1000;
+                motor_delta.Dpitch = RC_DATA.CH2-1000;
+                motor_delta.Dyaw = RC_DATA.CH4-1000;
+                MOUT.motor_1 = (motor_delta.KT*motor_delta.throttle - motor_delta.KR*motor_delta.Droll + motor_delta.KP*motor_delta.Dpitch + motor_delta.KY*motor_delta.Dyaw)*410*0.9/1600+451;
+                MOUT.motor_2 = (motor_delta.KT*motor_delta.throttle + motor_delta.KR*motor_delta.Droll - motor_delta.KP*motor_delta.Dpitch + motor_delta.KY*motor_delta.Dyaw)*410*0.9/1600+451;
+                MOUT.motor_3 = (motor_delta.KT*motor_delta.throttle + motor_delta.KR*motor_delta.Droll + motor_delta.KP*motor_delta.Dpitch - motor_delta.KY*motor_delta.Dyaw)*410*0.9/1600+451;
+                MOUT.motor_4 = (motor_delta.KT*motor_delta.throttle - motor_delta.KR*motor_delta.Droll - motor_delta.KP*motor_delta.Dpitch - motor_delta.KY*motor_delta.Dyaw)*410*0.9/1600+451;
+                if(MOUT.motor_1>820){
+                    MOUT.motor_1 = 820;
+                }
+                else if(MOUT.motor_1<410){
+                    MOUT.motor_1 = 410;
+                }
+                 if(MOUT.motor_2>820){
+                    MOUT.motor_2 = 820;
+                }
+                else if(MOUT.motor_2<410){
+                    MOUT.motor_2 = 410;
+                }
+                 if(MOUT.motor_3>820){
+                    MOUT.motor_4 = 820;
+                }
+                else if(MOUT.motor_3<410){
+                    MOUT.motor_3 = 410;
+                }
+                 if(MOUT.motor_4>820){
+                    MOUT.motor_4 = 820;
+                }
+                else if(MOUT.motor_4<410){
+                    MOUT.motor_4 = 410;
+                }
                 ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, MOUT.motor_1);
                 ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
                 ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, MOUT.motor_2);
@@ -272,15 +301,15 @@ static void get_imu_task(void *arg)
         // printf("\n");
         //read_register_stream();
         PYHdata = get_PHYSICS_Data();
-        printf("##################\n");
-        printf("%f\n", PYHdata.accelX);
-        printf("%f\n", PYHdata.accelY);
-        printf("%f\n", PYHdata.accelZ);
-        printf("%f\n", PYHdata.roll*180.0/PI);
-        printf("%f\n", PYHdata.pitch*180.0/PI);
-        printf("%f\n", PYHdata.yaw*180.0/PI);
-        printf("##################\n");
-        vTaskDelay(200/portTICK_PERIOD_MS);
+        // printf("##################\n");
+        // printf("%f\n", PYHdata.accelX);
+        // printf("%f\n", PYHdata.accelY);
+        // printf("%f\n", PYHdata.accelZ);
+        // printf("%f\n", PYHdata.roll*180.0/PI);
+        // printf("%f\n", PYHdata.pitch*180.0/PI);
+        // printf("%f\n", PYHdata.yaw*180.0/PI);
+        // printf("##################\n");
+        vTaskDelay(100/portTICK_PERIOD_MS);
     }
 }
 
