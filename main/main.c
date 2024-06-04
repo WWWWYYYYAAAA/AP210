@@ -13,59 +13,18 @@
 #include "driver/i2c.h"
 #include <math.h>
 #include "common.h"
+#include "i2cRW.h"
+#include "imu.h"
 
-#define PWM_CHANNEL_NUM 8
+SBUS RC_DATA = {0};
+struct AccelGyroData_int32_t OFFSET_RAW = {0, 0, 0, 0, 0, 0};
 uint8_t RC_CHECK = 63;
-
-//imu_param
-#define MPU_ADDR 0x68
-#define HMC5883_ADDR 0X3C
-#define CALIB_TIMES 50
-
 double G = 9.80665;
 double PI = 3.1415926535;
 float accel_scale=16384;
 float gyro_scale=7509.872412338726;
 int YAW_CAL = 0;
 
-
-
-void write_register(uint8_t address, uint8_t *data){
-    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-    i2c_master_start(cmd);
-    i2c_master_write_byte(cmd, address<<1|0, true);
-    i2c_master_write(cmd, data, sizeof(data), true);
-    i2c_master_stop(cmd);
-    i2c_master_cmd_begin(0, cmd, 1000 / portTICK_PERIOD_MS);
-    i2c_cmd_link_delete(cmd);
-}
-
-// 读寄存器函数
-uint8_t read_register(uint8_t address, uint8_t reg){
-    uint8_t data;
-    i2c_master_write_read_device(0,address,&reg,1,&data,1,1000/portTICK_PERIOD_MS);
-    return data;
-}
-
-// void read_register_stream()
-// {
-//      uint8_t dataHMC[6] = {0};
-//     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
-//     i2c_master_start(cmd);
-//     i2c_master_write_byte(cmd, 0X3C<<1|0, false);
-//     i2c_master_write_byte(cmd, 0x03, false);
-//     i2c_master_start(cmd);
-//     i2c_master_write_byte(cmd, 0X3C<<1|1, false);
-//     i2c_master_read_byte(cmd, dataHMC[0], true);
-//     i2c_master_stop(cmd);
-//     i2c_master_cmd_begin(0, cmd, 1000 / portTICK_PERIOD_MS);
-//     i2c_cmd_link_delete(cmd);
-//     for(int i=0; i<6; i++)
-//     {
-//         printf("%x ", dataHMC[i]);
-//     }
-//     printf("\n");
-// }
 
 void HW_init()
 {
@@ -186,118 +145,6 @@ void HW_init()
     // init BMP180
     //不想配了，反正不准
 
-}
-
-uint8_t list3[3]={0};
-
-// struct AccelGyroData_t get_raw_GY_87_data16(){
-//     struct AccelGyroData_t AccelGyroData;
-//     AccelGyroData.accelX = (read_register(MPU_ADDR, 59) << 8) + read_register(MPU_ADDR,60);
-//     AccelGyroData.accelY = (read_register(MPU_ADDR,61) << 8) + read_register(MPU_ADDR,62);
-//     AccelGyroData.accelZ = (read_register(MPU_ADDR,63) << 8) + read_register(MPU_ADDR,63);
-//     AccelGyroData.gyroX = (read_register(MPU_ADDR,67) << 8) + read_register(MPU_ADDR,68);
-//     AccelGyroData.gyroY = (read_register(MPU_ADDR,69) << 8) + read_register(MPU_ADDR,70);
-//     AccelGyroData.gyroZ = (read_register(MPU_ADDR,71) << 8) + read_register(MPU_ADDR,72);
-    
-//     AccelGyroData.roll = (read_register(MPU_ADDR, 0x49) << 8) + read_register(MPU_ADDR,0x4A);
-//     AccelGyroData.yaw = (read_register(MPU_ADDR,0x4B) << 8) + read_register(MPU_ADDR,0x4C);
-//     AccelGyroData.pitch = (read_register(MPU_ADDR,0x4D) << 8) + read_register(MPU_ADDR,0x4E);
-
-//     // list3[0] = read_register(HMC5883_ADDR, 0);
-//     // list3[1] = read_register(HMC5883_ADDR, 1); 
-//     // list3[2] = read_register(HMC5883_ADDR, 2);
-//     // uint8_t dataHMC[6] = {0};
-//     // read_register_stream(HMC5883_ADDR, 3, dataHMC, 6);
-//     // AccelGyroData.roll = (dataHMC[0]<<8) + dataHMC[1];
-//     // AccelGyroData.yaw = (dataHMC[2]<<8) + dataHMC[3];
-//     // AccelGyroData.pitch = (dataHMC[4]<<8) + dataHMC[5];
-//     return AccelGyroData;
-// }
-
-struct AccelGyroData_int32_t get_raw_mpu6050_data32()
-{
-    struct AccelGyroData_int32_t AccelGyroData;
-    AccelGyroData.accelX = (int)(int16_t)(read_register(MPU_ADDR, 59) << 8) + read_register(MPU_ADDR, 60);
-    AccelGyroData.accelY = (int)(int16_t)(read_register(MPU_ADDR, 61) << 8) + read_register(MPU_ADDR, 62);
-    AccelGyroData.accelZ = (int)(int16_t)(read_register(MPU_ADDR, 63) << 8) + read_register(MPU_ADDR, 63);
-    AccelGyroData.gyroX = (int)(int16_t)(read_register(MPU_ADDR, 67) << 8) + read_register(MPU_ADDR, 68);
-    AccelGyroData.gyroY = (int)(int16_t)(read_register(MPU_ADDR, 69) << 8) + read_register(MPU_ADDR, 70);
-    AccelGyroData.gyroZ = (int)(int16_t)(read_register(MPU_ADDR, 71) << 8) + read_register(MPU_ADDR, 72);
-   
-    return AccelGyroData;
-};
-
-void MPU_OFFSET()
-{
-    for(int i=0; i<CALIB_TIMES; i++)
-    {
-        struct AccelGyroData_int32_t data = get_raw_mpu6050_data32();
-        OFFSET_RAW.accelX += data.accelX;
-        OFFSET_RAW.accelY += data.accelY;
-        OFFSET_RAW.accelZ += data.accelZ;
-        OFFSET_RAW.gyroX += data.gyroX;
-        OFFSET_RAW.gyroY += data.gyroY;
-        OFFSET_RAW.gyroZ += data.gyroZ;
-        vTaskDelay(50 / portTICK_PERIOD_MS);
-    }
-    OFFSET_RAW.accelX /= CALIB_TIMES;
-    OFFSET_RAW.accelY /= CALIB_TIMES;
-    OFFSET_RAW.accelZ /= CALIB_TIMES;
-    OFFSET_RAW.gyroX /= CALIB_TIMES;
-    OFFSET_RAW.gyroY /= CALIB_TIMES;
-    OFFSET_RAW.gyroZ /= CALIB_TIMES;
-    OFFSET_RAW.accelZ -= accel_scale;
-    printf("OFFSET COLLECTED\n");
-}
-
-struct AccelGyroData_int32_t get_calibration_data()
-{
-    struct AccelGyroData_int32_t AccelGyroData;
-    AccelGyroData.accelX = (int)(int16_t)(read_register(MPU_ADDR, 59) << 8) + read_register(MPU_ADDR, 60) - OFFSET_RAW.accelX;
-    AccelGyroData.accelY = (int)(int16_t)(read_register(MPU_ADDR, 61) << 8) + read_register(MPU_ADDR, 62) - OFFSET_RAW.accelY;
-    AccelGyroData.accelZ = (int)(int16_t)(read_register(MPU_ADDR, 63) << 8) + read_register(MPU_ADDR, 63) - OFFSET_RAW.accelZ;
-    AccelGyroData.gyroX = (int)(int16_t)(read_register(MPU_ADDR, 67) << 8) + read_register(MPU_ADDR, 68) - OFFSET_RAW.gyroX;
-    AccelGyroData.gyroY = (int)(int16_t)(read_register(MPU_ADDR, 69) << 8) + read_register(MPU_ADDR, 70) - OFFSET_RAW.gyroY;
-    AccelGyroData.gyroZ = (int)(int16_t)(read_register(MPU_ADDR, 71) << 8) + read_register(MPU_ADDR, 72) - OFFSET_RAW.gyroZ;
-    return AccelGyroData;
-}
-
-struct AccelGyroPHYSICSData get_PHYSICS_Data()
-{
-    struct AccelGyroPHYSICSData phydata;
-    struct AccelGyroData_int32_t rawData = get_calibration_data();
-    phydata.accelX = 1.0 * rawData.accelX / accel_scale * G;
-    phydata.accelY = 1.0 * rawData.accelY / accel_scale * G;
-    phydata.accelZ = 1.0 * rawData.accelZ / accel_scale * G;
-    phydata.gyroX = 1.0 * rawData.gyroX / gyro_scale;
-    phydata.gyroY = 1.0 * rawData.gyroY / gyro_scale;
-    phydata.gyroZ = 1.0 * rawData.gyroZ / gyro_scale;
-    //phydata.roll = asin(phydata.accelY/G);
-    //phydata.pitch = asin(phydata.accelX/G);
-    // phydata.yaw = 1.0 * YAW_CAL / gyro_scale / 1000 * Tick;
-    phydata.yaw = 0;
-    if(phydata.accelY/G>=1)
-        phydata.roll = asin(1);
-    else if(phydata.accelY/G <= -1)
-        phydata.roll = asin(-1);
-    else if(phydata.accelZ >= 0)
-        phydata.roll = asin(phydata.accelY/G);
-    else if(phydata.accelZ < 0 && phydata.accelY < 0)
-        phydata.roll = -asin(phydata.accelY/G) - PI;
-    else
-        phydata.roll = -asin(phydata.accelY/G) + PI;
-    
-    if(phydata.accelX/G>=1)
-        phydata.pitch = asin(1);
-    else if(phydata.accelX/G <= -1)
-        phydata.pitch = asin(-1);
-    else if(phydata.accelZ >= 0)
-        phydata.pitch = asin(phydata.accelX/G);
-    else if(phydata.accelZ < 0 && phydata.accelX < 0)
-        phydata.pitch = -asin(phydata.accelX/G) - PI;
-    else
-        phydata.pitch = -asin(phydata.accelX/G) + PI;
-    return phydata;
 }
 
 static void rx_task(void *arg)
@@ -424,17 +271,17 @@ static void get_imu_task(void *arg)
         // printf("\n");
         //read_register_stream();
         data = get_PHYSICS_Data();
-        // printf("##################\n");
-        // printf("%f\n", data.accelX);
-        // printf("%f\n", data.accelY);
-        // printf("%f\n", data.accelZ);
-        // printf("%f\n", data.roll*180.0/PI);
-        // printf("%f\n", data.pitch*180.0/PI);
-        // printf("%f\n", data.yaw*180.0/PI);
-        // printf("##################\n");
-        // vTaskDelay(300 / portTICK_PERIOD_MS);
+        printf("##################\n");
+        printf("%f\n", data.accelX);
+        printf("%f\n", data.accelY);
+        printf("%f\n", data.accelZ);
+        printf("%f\n", data.roll*180.0/PI);
+        printf("%f\n", data.pitch*180.0/PI);
+        printf("%f\n", data.yaw*180.0/PI);
+        printf("##################\n");
+        vTaskDelay(300 / portTICK_PERIOD_MS);
 
-        vTaskDelay(20/portTICK_PERIOD_MS);
+        vTaskDelay(200/portTICK_PERIOD_MS);
     }
 }
 

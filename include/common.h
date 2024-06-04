@@ -73,15 +73,4 @@ typedef struct sbus_channel_16{
     uint16_t CH16;
 }SBUS;
 
-SBUS RC_DATA = {0};
-struct AccelGyroData_int32_t OFFSET_RAW = {0, 0, 0, 0, 0, 0};
-
-
-uint8_t RC_CHECK = 63;
-double G = 9.80665;
-double PI = 3.1415926535;
-float accel_scale=16384;
-float gyro_scale=7509.872412338726;
-int YAW_CAL = 0;
-
 #endif
