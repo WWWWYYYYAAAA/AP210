@@ -12,6 +12,7 @@
 #include "driver/ledc.h"
 #include "driver/i2c.h"
 #include <math.h>
+#include "common.h"
 
 #define PWM_CHANNEL_NUM 8
 uint8_t RC_CHECK = 63;
@@ -27,73 +28,7 @@ float accel_scale=16384;
 float gyro_scale=7509.872412338726;
 int YAW_CAL = 0;
 
-struct AccelGyroData_t
-{
-    int16_t accelX;
-    int16_t accelY;
-    int16_t accelZ;
-    int16_t gyroX;
-    int16_t gyroY;
-    int16_t gyroZ;
-    int16_t roll;
-    int16_t pitch;
-    int16_t yaw;
-};
 
-struct AccelGyroData_int32_t
-{
-    int accelX;
-    int accelY;
-    int accelZ;
-    int gyroX;
-    int gyroY;
-    int gyroZ;
-};
-
-struct AccelGyroPHYSICSData
-{
-    float accelX;
-    float accelY;
-    float accelZ;
-    float gyroX;
-    float gyroY;
-    float gyroZ;
-    float roll;
-    float pitch;
-    float yaw;
-};
-
-struct AccelGyroData_int32_t OFFSET_RAW = {0, 0, 0, 0, 0, 0};
-
-//uint16_t out_cha[PWM_CHANNEL_NUM] = {0};
-
-typedef struct motor{
-    uint16_t motor_1;
-    uint16_t motor_2;
-    uint16_t motor_3;
-    uint16_t motor_4;
-}MOTOR;
-
-typedef struct sbus_channel_16{
-    uint16_t CH1;
-    uint16_t CH2;
-    uint16_t CH3;
-    uint16_t CH4;
-    uint16_t CH5;
-    uint16_t CH6;
-    uint16_t CH7;
-    uint16_t CH8;
-    uint16_t CH9;
-    uint16_t CH10;
-    uint16_t CH11;
-    uint16_t CH12;
-    uint16_t CH13;
-    uint16_t CH14;
-    uint16_t CH15;
-    uint16_t CH16;
-}SBUS;
-
-SBUS RC_DATA = {0};
 
 void write_register(uint8_t address, uint8_t *data){
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
@@ -193,8 +128,14 @@ void HW_init()
     uint8_t CONFIG[] = {26,0x0};
     uint8_t GYRO_CONFIG[] = {27,0b00000000};
     uint8_t ACCEL_CONFIG[] = {28,0b00000000};
-    uint8_t MST_EN = {106, 0x00};
-    uint8_t BYPASS_EN = {0x37, 0x02};
+    
+    //uint8_t MST_EN[] = {106, 0x00};
+    // uint8_t BYPASS_EN[] = {0x37, 0x02};
+    // uint8_t I2C_MST_CTRL[] = {36, 0b11011101};
+    // uint8_t I2C_SLV0_ADDR[] = {37, 0xBC};
+    // uint8_t I2C_SLV0_REG[] = {38, 0x03};
+    // uint8_t I2C_SLV0_CTRL[] = {39, 0b10100110};
+   
     write_register(MPU_ADDR, PWR_MGMT_1);
     write_register(MPU_ADDR, PWR_MGMT_2);
     write_register(MPU_ADDR, CONFIG);
@@ -202,15 +143,46 @@ void HW_init()
     write_register(MPU_ADDR, ACCEL_CONFIG);
     // write_register(MPU_ADDR, MST_EN);
     // write_register(MPU_ADDR, BYPASS_EN);
+    // write_register(MPU_ADDR, I2C_MST_CTRL);
+    // write_register(MPU_ADDR, I2C_SLV0_ADDR);
+    // write_register(MPU_ADDR, I2C_SLV0_REG);
+    // write_register(MPU_ADDR, I2C_SLV0_CTRL);
+
+    // uint8_t HMC_LIST_6050[][2] = {{0x6A, 0b00000000},
+    //                         {0x37, 0x02},//hmcinit
+    //                         {0x37, 0x00},//2
+    //                         {0x6A, 0x20},
+    //                         {0x25, HMC5883_ADDR|0x80},
+    //                         {0x26, 0x03},
+    //                         {0x27, 6|0x80},
+    //                         {0x67, 1}
+    //                         };
+    // uint8_t HMC_LIST_5883[][2] = {{0x00, 0x18},
+    //                             {0x01, 0x60},
+    //                             {0x02, 0x00}
+    //                             };
+    // for(int i = 0; i<2; i++)
+    // {
+    //     write_register(MPU_ADDR, HMC_LIST_6050[i]);
+    // }
+    // for(int i = 0; i<3; i++)
+    // {
+    //     write_register(HMC5883_ADDR, HMC_LIST_5883[i]);
+    // }
+    // for(int i = 2; i<8; i++)
+    // {
+    //     write_register(MPU_ADDR, HMC_LIST_6050[i]);
+    // }
+
     accel_scale=16384; //+-2G
     gyro_scale=7509.872412338726; //+-250 /rad
     //init HMC5883L
-    uint8_t reg_A[] = {0, 0b01110000};
-    uint8_t reg_B[] = {1, 0b00100000};
-    uint8_t reg_mod[] = {2, 0b00000000};
-    write_register(HMC5883_ADDR, reg_A);
-    write_register(HMC5883_ADDR, reg_B);
-    write_register(HMC5883_ADDR, reg_mod);
+    // uint8_t reg_A[] = {0, 0b01110000};
+    // uint8_t reg_B[] = {1, 0b00100000};
+    // uint8_t reg_mod[] = {2, 0b00000000};
+    // write_register(HMC5883_ADDR, reg_A);
+    // write_register(HMC5883_ADDR, reg_B);
+    // write_register(HMC5883_ADDR, reg_mod);
     // init BMP180
     //不想配了，反正不准
 
@@ -218,27 +190,29 @@ void HW_init()
 
 uint8_t list3[3]={0};
 
-struct AccelGyroData_t get_raw_GY_87_data16(){
-    struct AccelGyroData_t AccelGyroData;
-    AccelGyroData.accelX = (read_register(MPU_ADDR, 59) << 8) + read_register(MPU_ADDR,60);
-    AccelGyroData.accelY = (read_register(MPU_ADDR,61) << 8) + read_register(MPU_ADDR,62);
-    AccelGyroData.accelZ = (read_register(MPU_ADDR,63) << 8) + read_register(MPU_ADDR,63);
-    AccelGyroData.gyroX = (read_register(MPU_ADDR,67) << 8) + read_register(MPU_ADDR,68);
-    AccelGyroData.gyroY = (read_register(MPU_ADDR,69) << 8) + read_register(MPU_ADDR,70);
-    AccelGyroData.gyroZ = (read_register(MPU_ADDR,71) << 8) + read_register(MPU_ADDR,72);
-    // AccelGyroData.roll = (read_register(HMC5883_ADDR,3) << 8) + read_register(HMC5883_ADDR,4);
-    // AccelGyroData.yaw = (read_register(HMC5883_ADDR,5) << 8) + read_register(HMC5883_ADDR,6);
-    // AccelGyroData.pitch = (read_register(HMC5883_ADDR,7) << 8) + read_register(HMC5883_ADDR,8);
-    // list3[0] = read_register(HMC5883_ADDR, 0);
-    // list3[1] = read_register(HMC5883_ADDR, 1); 
-    // list3[2] = read_register(HMC5883_ADDR, 2);
-    // uint8_t dataHMC[6] = {0};
-    // read_register_stream(HMC5883_ADDR, 3, dataHMC, 6);
-    // AccelGyroData.roll = (dataHMC[0]<<8) + dataHMC[1];
-    // AccelGyroData.yaw = (dataHMC[2]<<8) + dataHMC[3];
-    // AccelGyroData.pitch = (dataHMC[4]<<8) + dataHMC[5];
-    return AccelGyroData;
-}
+// struct AccelGyroData_t get_raw_GY_87_data16(){
+//     struct AccelGyroData_t AccelGyroData;
+//     AccelGyroData.accelX = (read_register(MPU_ADDR, 59) << 8) + read_register(MPU_ADDR,60);
+//     AccelGyroData.accelY = (read_register(MPU_ADDR,61) << 8) + read_register(MPU_ADDR,62);
+//     AccelGyroData.accelZ = (read_register(MPU_ADDR,63) << 8) + read_register(MPU_ADDR,63);
+//     AccelGyroData.gyroX = (read_register(MPU_ADDR,67) << 8) + read_register(MPU_ADDR,68);
+//     AccelGyroData.gyroY = (read_register(MPU_ADDR,69) << 8) + read_register(MPU_ADDR,70);
+//     AccelGyroData.gyroZ = (read_register(MPU_ADDR,71) << 8) + read_register(MPU_ADDR,72);
+    
+//     AccelGyroData.roll = (read_register(MPU_ADDR, 0x49) << 8) + read_register(MPU_ADDR,0x4A);
+//     AccelGyroData.yaw = (read_register(MPU_ADDR,0x4B) << 8) + read_register(MPU_ADDR,0x4C);
+//     AccelGyroData.pitch = (read_register(MPU_ADDR,0x4D) << 8) + read_register(MPU_ADDR,0x4E);
+
+//     // list3[0] = read_register(HMC5883_ADDR, 0);
+//     // list3[1] = read_register(HMC5883_ADDR, 1); 
+//     // list3[2] = read_register(HMC5883_ADDR, 2);
+//     // uint8_t dataHMC[6] = {0};
+//     // read_register_stream(HMC5883_ADDR, 3, dataHMC, 6);
+//     // AccelGyroData.roll = (dataHMC[0]<<8) + dataHMC[1];
+//     // AccelGyroData.yaw = (dataHMC[2]<<8) + dataHMC[3];
+//     // AccelGyroData.pitch = (dataHMC[4]<<8) + dataHMC[5];
+//     return AccelGyroData;
+// }
 
 struct AccelGyroData_int32_t get_raw_mpu6050_data32()
 {
@@ -436,20 +410,20 @@ static void motor_out_task(void *arg)
 
 static void get_imu_task(void *arg)
 {
-    //struct AccelGyroPHYSICSData data;
-    struct AccelGyroData_t imu_data_raw = {0};
+    struct AccelGyroPHYSICSData data;
+    //struct AccelGyroData_t imu_data_raw = {0};
     while (1)
     {
-        imu_data_raw = get_raw_GY_87_data16();
-        printf("%x %x %x ", list3[0], list3[1], list3[2]);
-        printf("ROLL %3.5f, PITCH %3.5f, YAW %3.5f\n", 1.0 * (int16_t)imu_data_raw.roll/1090 , 1.0 * (int16_t)imu_data_raw.pitch/1090 , 1.0 * (int16_t)imu_data_raw.yaw/1090 );
+        //imu_data_raw = get_raw_GY_87_data16();
+        //printf("%x %x %x ", list3[0], list3[1], list3[2]);
+        //printf("ROLL %d, PITCH %d, YAW %d\n", (int16_t)imu_data_raw.roll , (int16_t)imu_data_raw.pitch , (int16_t)imu_data_raw.yaw );
         // for(int i=3; i<20; i++)
         // {
         //     printf("%d ", read_register(HMC5883_ADDR, i));
         // }
         // printf("\n");
         //read_register_stream();
-        // data = get_PHYSICS_Data();
+        data = get_PHYSICS_Data();
         // printf("##################\n");
         // printf("%f\n", data.accelX);
         // printf("%f\n", data.accelY);
@@ -460,7 +434,7 @@ static void get_imu_task(void *arg)
         // printf("##################\n");
         // vTaskDelay(300 / portTICK_PERIOD_MS);
 
-        vTaskDelay(1000/portTICK_PERIOD_MS);
+        vTaskDelay(20/portTICK_PERIOD_MS);
     }
 }
 
