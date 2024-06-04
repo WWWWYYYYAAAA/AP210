@@ -74,9 +74,13 @@ typedef struct sbus_channel_16{
 }SBUS;
 
 typedef struct attitude{
+    float gyroX;
+    float gyroY;
+    float gyroZ;
     float roll;
     float pitch;
-    float yaw;
+    float yaw; 
+    float throttle;
 }Attitude;
 
 typedef struct motor_delta{
@@ -93,4 +97,18 @@ typedef struct motor_delta{
 |M3|    --  |+1 +1 +1 -1| |Dpitch   |          /--\
 |M4|        |+1 -1 -1 -1| |Dyaw     |       M2      M4
 */
+
+typedef struct pidparam
+{
+    float kp;
+    float ki;
+    float kd;
+}PID_Param;
+
+typedef struct pid_element
+{
+    double integ;
+    double diff;
+}PID_Element;
+
 #endif

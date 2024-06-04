@@ -19,12 +19,29 @@
 SBUS RC_DATA = {0};
 struct AccelGyroData_int32_t OFFSET_RAW = {410, 274, 1305, -309, -73, -3};
 uint8_t RC_CHECK = 63;
-double G = 9.80665;
+float G = 9.80665;
 double PI = 3.1415926535;
-float accel_scale=16384;
-float gyro_scale=7509.872412338726;
+double accel_scale=16384;
+double gyro_scale=7509.872412338726;
 int YAW_CAL = 0;
 struct AccelGyroPHYSICSData PYHdata;
+
+Attitude Last_attitude = {0};
+Attitude Now_attitude = {0};
+Attitude Desire_attitude = {0};
+PID_Param pidP_list[6] = {{0.5, 0.5, 0.5},
+                          {0.5, 0.5, 0.5}, 
+                          {0.5, 0.5, 0.5},
+                          {0.5, 0.5, 0.5},
+                          {0.5, 0.5, 0.5},   //gyroZ
+                          {0.5, 0.5, 0.5}};  //throttle
+
+PID_Element roll_pid = {0};
+PID_Element gyroX_pid = {0};
+PID_Element pitch_pid = {0};
+PID_Element gyroY_pid = {0};
+PID_Element gyroZ_pid = {0};
+PID_Element throttle_pid = {0};
 
 void HW_init()
 {
@@ -205,7 +222,11 @@ static void rx_task(void *arg)
     RC_DATA.CH8 = ((byte_list[9]>>5 | (byte_list[10]<<3)) & 2047);
     RC_CHECK = byte_list[22];
     //printf("%d %d\n", (int)byte_list[22], (int)byte_list[23]);
-
+    printf("CH1 %4d|", RC_DATA.CH1);
+    printf("CH2 %4d|", RC_DATA.CH2);
+    printf("CH3 %4d|", RC_DATA.CH3);
+    printf("CH4 %4d|", RC_DATA.CH4);
+    printf("\n");
     vTaskDelay(10/portTICK_PERIOD_MS);
     }
 }
@@ -228,6 +249,11 @@ static void motor_out_task(void *arg)
             }
             else
             {
+                Desire_attitude.roll = 1.0*(RC_DATA.CH3-1000)*PI/4/800;
+                Desire_attitude.pitch = 1.0*(RC_DATA.CH3-1000)*PI/4/800;
+                Desire_attitude.gyroZ = 1.0*(RC_DATA.CH3-1000)*PI/4/800;
+                Desire_attitude.throttle = RC_DATA.CH3-200;
+
                 motor_delta.throttle = RC_DATA.CH3-200;
                 motor_delta.Droll = RC_DATA.CH1-1000;
                 motor_delta.Dpitch = RC_DATA.CH2-1000;
@@ -289,6 +315,7 @@ static void motor_out_task(void *arg)
 static void get_imu_task(void *arg)
 {
     //struct AccelGyroData_t imu_data_raw = {0};
+    PYHdata = get_PHYSICS_Data();
     while (1)
     {
         //imu_data_raw = get_raw_GY_87_data16();
@@ -300,6 +327,12 @@ static void get_imu_task(void *arg)
         // }
         // printf("\n");
         //read_register_stream();
+        Last_attitude.gyroX = PYHdata.gyroX;
+        Last_attitude.gyroY = PYHdata.gyroY;
+        Last_attitude.gyroZ = PYHdata.gyroZ;
+        Last_attitude.roll = PYHdata.roll;
+        Last_attitude.pitch = PYHdata.pitch;
+        Last_attitude.yaw = PYHdata.yaw;
         PYHdata = get_PHYSICS_Data();
         // printf("##################\n");
         // printf("%f\n", PYHdata.accelX);
