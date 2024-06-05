@@ -16,6 +16,7 @@
 #include "i2cRW.h"
 #include "imu.h"
 #include "SetSpiffs.h"
+#include <dirent.h>
 
 SBUS RC_DATA = {0};
 struct AccelGyroData_int32_t OFFSET_RAW = {410, 274, 1305, -309, -73, -3};
@@ -299,7 +300,7 @@ static void motor_out_task(void *arg)
                 ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2);
                 ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_3, MOUT.motor_4);
                 ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_3);
-                printf("%d %d %d %d\n", MOUT.motor_1, MOUT.motor_2, MOUT.motor_3, MOUT.motor_4);
+                //printf("%d %d %d %d\n", MOUT.motor_1, MOUT.motor_2, MOUT.motor_3, MOUT.motor_4);
             }
         }
         else
@@ -432,7 +433,7 @@ void PID_task()
         roll_pid.error = Desire_attitude.roll - PYHdata.roll;
         roll_pid.integ += roll_pid.error;
         roll_pid.diff = (roll_pid.error - roll_pid.last_error);
-        Desire_attitude.gyroX = pidP_list[0].kp*(roll_pid.error + pidP_list[0].ki*roll_pid.integ - pidP_list[0].kd*roll_pid.diff);
+        Desire_attitude.gyroX = pidP_list[0].kp*(roll_pid.error + pidP_list[0].ki*roll_pid.integ + pidP_list[0].kd*roll_pid.diff);
         //printf("Desire_attitude.roll: %3.5f PYHdata.roll: %3.5f roll_pid.error: %3.5f\n", Desire_attitude.roll, PYHdata.roll, roll_pid.error);
         //printf(" Desire_attitude.gyroX: %f\n",  Desire_attitude.gyroX);
         //gyroX
@@ -441,7 +442,7 @@ void PID_task()
         gyroX_pid.error = Desire_attitude.gyroX - PYHdata.gyroX;
         gyroX_pid.integ +=  gyroX_pid.error;
         gyroX_pid.diff = gyroX_pid.error - gyroX_pid.last_error;
-        motor_delta.Droll = pidP_list[1].kp*(gyroX_pid.error + pidP_list[1].ki*gyroX_pid.integ - pidP_list[1].kd*gyroX_pid.diff);
+        motor_delta.Droll = pidP_list[1].kp*(gyroX_pid.error + pidP_list[1].ki*gyroX_pid.integ + pidP_list[1].kd*gyroX_pid.diff);
         //printf("motor_delta.Droll : %f ", motor_delta.Droll);
         //pitch
        
@@ -449,13 +450,13 @@ void PID_task()
         pitch_pid.error = Desire_attitude.pitch - PYHdata.pitch;
         pitch_pid.integ += pitch_pid.error;
         pitch_pid.diff = (pitch_pid.error - pitch_pid.last_error);
-        Desire_attitude.gyroY = pidP_list[2].kp*(pitch_pid.error + pidP_list[2].ki*pitch_pid.integ - pidP_list[2].kd*pitch_pid.diff);
+        Desire_attitude.gyroY = pidP_list[2].kp*(pitch_pid.error + pidP_list[2].ki*pitch_pid.integ + pidP_list[2].kd*pitch_pid.diff);
         //gyroY
         gyroY_pid.last_error = gyroY_pid.error;
         gyroY_pid.error = Desire_attitude.gyroY - PYHdata.gyroY;
         gyroY_pid.integ +=  gyroY_pid.error;
         gyroY_pid.diff = gyroY_pid.error - gyroY_pid.last_error;
-        motor_delta.Dpitch = pidP_list[3].kp*(gyroY_pid.error + pidP_list[3].ki*gyroY_pid.integ - pidP_list[3].kd*gyroY_pid.diff);
+        motor_delta.Dpitch = pidP_list[3].kp*(gyroY_pid.error + pidP_list[3].ki*gyroY_pid.integ + pidP_list[3].kd*gyroY_pid.diff);
         //printf("motor_delta.Dpitch : %f\n", motor_delta.Dpitch);
         //gyroZ
     
@@ -463,7 +464,7 @@ void PID_task()
         gyroZ_pid.error = Desire_attitude.gyroZ - PYHdata.gyroZ;
         gyroZ_pid.integ += gyroZ_pid.error;
         gyroZ_pid.diff = gyroZ_pid.error - gyroZ_pid.last_error;
-        motor_delta.Dyaw = pidP_list[4].kp*(gyroZ_pid.error + pidP_list[4].ki*gyroZ_pid.integ - pidP_list[4].kd*gyroZ_pid.diff);
+        motor_delta.Dyaw = pidP_list[4].kp*(gyroZ_pid.error + pidP_list[4].ki*gyroZ_pid.integ + pidP_list[4].kd*gyroZ_pid.diff);
         //printf("motor_delta.Dyaw : %f\n", motor_delta.Dyaw);
         //throttle
         //throttle_pid.last_error = throttle_pid.error;
@@ -475,16 +476,45 @@ void PID_task()
     }
 }
 
-void clear_I(){
-    while (1)
-    {
-        integ_clr_flag[0] = 1;
-        integ_clr_flag[1] = 1;
-        integ_clr_flag[2] = 1;
-        integ_clr_flag[3] = 1;
-        vTaskDelay(200/portTICK_PERIOD_MS);
-    }
+// void clear_I(){
+//     while (1)
+//     {
+//         integ_clr_flag[0] = 1;
+//         integ_clr_flag[1] = 1;
+//         integ_clr_flag[2] = 1;
+//         integ_clr_flag[3] = 1;
+//         vTaskDelay(200/portTICK_PERIOD_MS);
+//     }
     
+// }
+
+void test_spiffs()
+{
+    FILE* f0 = fopen("/user_partition/hello.txt", "w"); 
+    if (f0 == NULL) {
+        ESP_LOGE("TAG", "write failed");
+        return;
+    }
+    fprintf(f0, "hello world! 19:39\n");
+    fclose(f0);
+    char file_name[] = "/user_partition/hello.txt";
+    char file_name1[] = "/user_partition/hello1.txt";
+    printf("%d %d\n", IsExist(file_name), IsExist(file_name1));
+    vTaskDelay(1000/portTICK_PERIOD_MS);
+    remove(file_name);
+    vTaskDelay(1000/portTICK_PERIOD_MS);
+    printf("%d %d\n", IsExist(file_name), IsExist(file_name1));
+    
+    //char line[64];
+    // FILE* f = fopen("/user_partition/hello.txt", "r");
+    // if (f == NULL) {
+    //     ESP_LOGE("TAG", "read failed");
+    //     return;
+    // }
+    // fgets(line, sizeof(line), f);
+    // fclose(f); 
+
+    // printf("%s:\n%s\n", "/user_partition/hello.txt", line);
 }
 
 void app_main(void)
@@ -492,6 +522,7 @@ void app_main(void)
     printf("INITIALIZING...\n");
     user_partition_init();
     HW_init();
+    test_spiffs();
     printf("INITIALIZATION COMPLETED\n");
     xTaskCreate(rx_task, "uart_rx_task", 1024*4, NULL, 1, NULL);
     xTaskCreate(motor_out_task, "motor_out_task", 1024*4, NULL, 1, NULL);

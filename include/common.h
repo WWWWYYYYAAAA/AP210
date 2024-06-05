@@ -2,6 +2,7 @@
 #define _COMMMON_H_
 
 #include <stdio.h>
+#include "esp_log.h"
 
 #define PWM_CHANNEL_NUM 8
 //imu_param
