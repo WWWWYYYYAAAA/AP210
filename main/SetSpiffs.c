@@ -1,6 +1,6 @@
 #include "SetSpiffs.h"
 
-int8_t init_spiffs(){
+int8_t user_partition_init(){
      // 初始化 SPIFFS
     esp_vfs_spiffs_conf_t conf = {
       .base_path = "/user_partition",  // 指定 SPIFFS 的挂载路径

@@ -15,6 +15,7 @@
 #include "common.h"
 #include "i2cRW.h"
 #include "imu.h"
+#include "SetSpiffs.h"
 
 SBUS RC_DATA = {0};
 struct AccelGyroData_int32_t OFFSET_RAW = {410, 274, 1305, -309, -73, -3};
@@ -489,6 +490,7 @@ void clear_I(){
 void app_main(void)
 {
     printf("INITIALIZING...\n");
+    user_partition_init();
     HW_init();
     printf("INITIALIZATION COMPLETED\n");
     xTaskCreate(rx_task, "uart_rx_task", 1024*4, NULL, 1, NULL);

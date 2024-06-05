@@ -5,6 +5,6 @@
 #include "esp_spiffs.h"
 #include "esp_log.h"
 
-int8_t init_spiffs();
+int8_t user_partition_init();
 void delete_SPIFFS();
 #endif
