@@ -3,5 +3,4 @@
 nvs,      data, nvs,     ,   0x6000,
 phy_init, data, phy,     ,   0x1000,
 factory,  app,  factory, ,  2M,
-param,   data,  spiffs,  , 2M,
-runtime_data,  data,  spiffs,  , 10M,
+user_partition,   data,  spiffs,  , 10M,
