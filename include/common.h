@@ -107,8 +107,10 @@ typedef struct pidparam
 
 typedef struct pid_element
 {
+    double error;
     double integ;
     double diff;
+    double last_error;
 }PID_Element;
 
 #endif

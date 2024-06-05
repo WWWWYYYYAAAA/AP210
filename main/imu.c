@@ -87,6 +87,7 @@ struct AccelGyroData_int32_t get_calibration_data()
     AccelGyroData.gyroX = (int)(int16_t)(read_register(MPU_ADDR, 67) << 8) + read_register(MPU_ADDR, 68) - OFFSET_RAW.gyroX;
     AccelGyroData.gyroY = (int)(int16_t)(read_register(MPU_ADDR, 69) << 8) + read_register(MPU_ADDR, 70) - OFFSET_RAW.gyroY;
     AccelGyroData.gyroZ = (int)(int16_t)(read_register(MPU_ADDR, 71) << 8) + read_register(MPU_ADDR, 72) - OFFSET_RAW.gyroZ;
+    //printf("accelX %d, accelY %d, accelZ %d\n", AccelGyroData.accelX, AccelGyroData.accelY, AccelGyroData.accelZ);
     return AccelGyroData;
 }
 
@@ -103,6 +104,7 @@ struct AccelGyroPHYSICSData get_PHYSICS_Data()
     //phydata.roll = asin(phydata.accelY/G);
     //phydata.pitch = asin(phydata.accelX/G);
     // phydata.yaw = 1.0 * YAW_CAL / gyro_scale / 1000 * Tick;
+    //printf("accelX %f, accelY %f, accelZ %f\n", phydata.accelX, phydata.accelY, phydata.accelZ);
     phydata.yaw = 0;
     if(phydata.accelY/G>=1)
         phydata.roll = asin(1);
