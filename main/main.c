@@ -17,6 +17,7 @@
 #include "imu.h"
 #include "SetSpiffs.h"
 #include <dirent.h>
+#include "fatfs.h"
 
 SBUS RC_DATA = {0};
 struct AccelGyroData_int32_t OFFSET_RAW = {410, 274, 1305, -309, -73, -3};
@@ -591,9 +592,10 @@ void app_main(void)
 {
     vTaskDelay(200/portTICK_PERIOD_MS);
     printf("INITIALIZING...\n");
-    user_partition_init();
+    //user_partition_init();
     HW_init();
-    init_file();
+    //init_file();
+    init_myfatfs();
     //test_spiffs();
     //remove("/user_partition/hello.txt");
     printf("INITIALIZATION COMPLETED\n");
