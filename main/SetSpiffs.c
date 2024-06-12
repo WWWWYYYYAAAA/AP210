@@ -6,7 +6,7 @@ int8_t user_partition_init(){
       .base_path = "/user_partition",
       .partition_label = "SPIFFS", 
       .max_files = 8, 
-      .format_if_mount_failed = false
+      .format_if_mount_failed = true
     };
 
     // 注册 SPIFFS 到 VFS

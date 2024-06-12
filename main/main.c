@@ -45,9 +45,10 @@ PID_Element pitch_pid = {0};
 PID_Element gyroY_pid = {0};
 PID_Element gyroZ_pid = {0};
 PID_Element throttle_pid = {0};
-DMotor motor_delta = {0, 0, 0, 0, 1, 5, 5, 5};   //ROLL PITCH YAW
+DMotor motor_delta = {0, 0, 0, 0, 1, 0.2, 0.2, 0.2};   //ROLL PITCH YAW
 
 float hover_percentage = 0.3;
+uint8_t sw1=0, sw2=0;
 
 void HW_init()
 {
@@ -170,6 +171,14 @@ void HW_init()
     //不想配了，反正不准
     //caliberate the mpu6050
     //MPU_OFFSET();
+    gpio_config_t ioConfig = {
+		.pin_bit_mask = (1ull << 1)|(1ull << 2),
+		.mode = GPIO_MODE_INPUT,
+        .pull_up_en = GPIO_PULLUP_ENABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE
+	};
+    gpio_config(&ioConfig);
 }
 
 static void rx_task(void *arg)
@@ -261,9 +270,9 @@ static void motor_out_task(void *arg)
                 Desire_attitude.throttle = (RC_DATA.CH3-200);
                 //printf("Desire_attitude.roll %f\n", Desire_attitude.roll);
                 motor_delta.throttle = Desire_attitude.throttle;
-                // motor_delta.Droll = RC_DATA.CH1-1000;
-                // motor_delta.Dpitch = RC_DATA.CH2-1000;
-                // motor_delta.Dyaw = RC_DATA.CH4-1000;
+                motor_delta.Droll = RC_DATA.CH1-1000;
+                motor_delta.Dpitch = RC_DATA.CH2-1000;
+                motor_delta.Dyaw = RC_DATA.CH4-1000;
                 MOUT.motor_1 = (motor_delta.KT*motor_delta.throttle - motor_delta.KR*motor_delta.Droll + motor_delta.KP*motor_delta.Dpitch + motor_delta.KY*motor_delta.Dyaw)*410*0.9/1600+451;
                 MOUT.motor_2 = (motor_delta.KT*motor_delta.throttle + motor_delta.KR*motor_delta.Droll - motor_delta.KP*motor_delta.Dpitch + motor_delta.KY*motor_delta.Dyaw)*410*0.9/1600+451;
                 MOUT.motor_3 = (motor_delta.KT*motor_delta.throttle + motor_delta.KR*motor_delta.Droll + motor_delta.KP*motor_delta.Dpitch - motor_delta.KY*motor_delta.Dyaw)*410*0.9/1600+451;
@@ -488,6 +497,20 @@ void PID_task()
     
 // }
 
+void get_mode_task(void *arg)
+{
+    
+    while (1)
+    {
+        sw1 = gpio_get_level(2);
+        sw2 = gpio_get_level(1);
+        printf("sw1 %d sw2 %d\n", sw1, sw2);
+        vTaskDelay(500/portTICK_PERIOD_MS);
+    }
+    
+    
+}
+
 void test_spiffs()
 {
     FILE* f0 = fopen("/user_partition/hello.txt", "w"); 
@@ -517,16 +540,67 @@ void test_spiffs()
     // printf("%s:\n%s\n", "/user_partition/hello.txt", line);
 }
 
+void init_file()
+{
+    char main_param[50] = "/user_partition/main_param.txt";
+    int times = 0;
+    FILE* fmain;
+    char paramstr[100];
+    //printf("%d\n", IsExist(main_param));
+    sw1 = gpio_get_level(2);
+    sw2 = gpio_get_level(1);
+    if(!IsExist(main_param))
+    {
+        printf("CREATING MAIN PARAM\n");
+        fmain = fopen(main_param, "w");
+        fprintf(fmain, "%5d\n", 0);
+        fclose(fmain);
+    }
+    else if(sw1 && sw2)
+    {
+        printf("CLEAR MAIN PARAM\n");
+        fmain = fopen(main_param, "w");
+        fprintf(fmain, "%5d\n", 0);
+        fclose(fmain);
+    }
+
+    fmain = fopen(main_param, "r");
+    if (fmain == NULL) {
+        printf("FMAIN OPEN FAILED<READ>\n");
+    }
+    else{
+        fgets(paramstr, sizeof(paramstr) ,fmain);
+        char power_times[6] = {paramstr[0], paramstr[1], paramstr[2], paramstr[3], paramstr[4], 0};
+        times = atoi(power_times) + 1;
+        fclose(fmain);
+        }
+
+    fmain = fopen(main_param, "w");
+    if (fmain == NULL) {
+        printf("FMAIN OPEN FAILED<WRITE>\n");
+    }
+    else
+    {
+        fprintf(fmain,"%5d\n", times);
+        printf("POWER TIMES:%5d\n", times);
+        fclose(fmain);
+    }
+}
+
 void app_main(void)
 {
+    vTaskDelay(200/portTICK_PERIOD_MS);
     printf("INITIALIZING...\n");
     user_partition_init();
     HW_init();
-    test_spiffs();
+    init_file();
+    //test_spiffs();
+    //remove("/user_partition/hello.txt");
     printf("INITIALIZATION COMPLETED\n");
     xTaskCreate(rx_task, "uart_rx_task", 1024*4, NULL, 1, NULL);
     xTaskCreate(motor_out_task, "motor_out_task", 1024*4, NULL, 1, NULL);
     xTaskCreate(get_imu_task, "get_imu_task", 1024*4, NULL, 1, NULL);
     xTaskCreate(PID_task, "PID_task", 1024*4,  NULL, 1, NULL);
     //xTaskCreate(clear_I, "clear_I", 1024,  NULL, 1, NULL);
+    xTaskCreate(get_mode_task, "get_mode_task", 1024*4,  NULL, 1, NULL);
 }
