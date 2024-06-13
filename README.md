@@ -11,7 +11,7 @@ sw2 | sw1 | mode
  1  |  1  | reset
 
 ## Image
-<center class="half">
+<left class="half">
 <img src="./pic/board_up.JPG" height=220 width=200/>
 <img src="./pic/board_bottom.JPG" height=220 width=200/>
-</center>
+</left>
