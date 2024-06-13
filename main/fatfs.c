@@ -56,163 +56,161 @@ static char const *string_desc_arr[] = {
 
 #define BASE_PATH "/data" // base path to mount the partition
 
-#define PROMPT_STR CONFIG_IDF_TARGET
-static int console_unmount(int argc, char **argv);
-static int console_read(int argc, char **argv);
-static int console_write(int argc, char **argv);
-static int console_size(int argc, char **argv);
-static int console_status(int argc, char **argv);
-static int console_exit(int argc, char **argv);
-const esp_console_cmd_t cmds[] = {
-    {
-        .command = "read",
-        .help = "read BASE_PATH/README.MD and print its contents",
-        .hint = NULL,
-        .func = &console_read,
-    },
-    {
-        .command = "write",
-        .help = "create file BASE_PATH/README.MD if it does not exist",
-        .hint = NULL,
-        .func = &console_write,
-    },
-    {
-        .command = "size",
-        .help = "show storage size and sector size",
-        .hint = NULL,
-        .func = &console_size,
-    },
-    {
-        .command = "expose",
-        .help = "Expose Storage to Host",
-        .hint = NULL,
-        .func = &console_unmount,
-    },
-    {
-        .command = "status",
-        .help = "Status of storage exposure over USB",
-        .hint = NULL,
-        .func = &console_status,
-    },
-    {
-        .command = "exit",
-        .help = "exit from application",
-        .hint = NULL,
-        .func = &console_exit,
-    }
-};
+// #define PROMPT_STR CONFIG_IDF_TARGET
+// static int console_unmount(int argc, char **argv);
+// static int console_read(int argc, char **argv);
+// static int console_write(int argc, char **argv);
+// static int console_size(int argc, char **argv);
+// static int console_status(int argc, char **argv);
+// static int console_exit(int argc, char **argv);
+// const esp_console_cmd_t cmds[] = {
+//     {
+//         .command = "read",
+//         .help = "read BASE_PATH/README.MD and print its contents",
+//         .hint = NULL,
+//         .func = &console_read,
+//     },
+//     {
+//         .command = "write",
+//         .help = "create file BASE_PATH/README.MD if it does not exist",
+//         .hint = NULL,
+//         .func = &console_write,
+//     },
+//     {
+//         .command = "size",
+//         .help = "show storage size and sector size",
+//         .hint = NULL,
+//         .func = &console_size,
+//     },
+//     {
+//         .command = "expose",
+//         .help = "Expose Storage to Host",
+//         .hint = NULL,
+//         .func = &console_unmount,
+//     },
+//     {
+//         .command = "status",
+//         .help = "Status of storage exposure over USB",
+//         .hint = NULL,
+//         .func = &console_status,
+//     },
+//     {
+//         .command = "exit",
+//         .help = "exit from application",
+//         .hint = NULL,
+//         .func = &console_exit,
+//     }
+// };
 
 // mount the partition and show all the files in BASE_PATH
 static void _mount(void)
 {
-    ESP_LOGI(TAG, "Mount storage...");
+    //ESP_LOGI(TAG, "Mount storage...");
     ESP_ERROR_CHECK(tinyusb_msc_storage_mount(BASE_PATH));
-
-
     // List all the files in this directory
-    ESP_LOGI(TAG, "\nls command output:");
-    struct dirent *d;
-    DIR *dh = opendir(BASE_PATH);
-    if (!dh) {
-        if (errno == ENOENT) {
-            //If the directory is not found
-            ESP_LOGE(TAG, "Directory doesn't exist %s", BASE_PATH);
-        } else {
-            //If the directory is not readable then throw error and exit
-            ESP_LOGE(TAG, "Unable to read directory %s", BASE_PATH);
-        }
-        return;
-    }
-    //While the next entry is not readable we will print directory files
-    while ((d = readdir(dh)) != NULL) {
-        printf("%s\n", d->d_name);
-    }
+    //ESP_LOGI(TAG, "\nls command output:");
+    // struct dirent *d;
+    // DIR *dh = opendir(BASE_PATH);
+    // if (!dh) {
+    //     if (errno == ENOENT) {
+    //         //If the directory is not found
+    //         ESP_LOGE(TAG, "Directory doesn't exist %s", BASE_PATH);
+    //     } else {
+    //         //If the directory is not readable then throw error and exit
+    //         ESP_LOGE(TAG, "Unable to read directory %s", BASE_PATH);
+    //     }
+    //     return;
+    // }
+    // //While the next entry is not readable we will print directory files
+    // while ((d = readdir(dh)) != NULL) {
+    //     printf("%s\n", d->d_name);
+    // }
     return;
 }
 
-// unmount storage
-static int console_unmount(int argc, char **argv)
-{
-    if (tinyusb_msc_storage_in_use_by_usb_host()) {
-        ESP_LOGE(TAG, "storage is already exposed");
-        return -1;
-    }
-    ESP_LOGI(TAG, "Unmount storage...");
-    ESP_ERROR_CHECK(tinyusb_msc_storage_unmount());
-    return 0;
-}
+// // unmount storage
+// static int console_unmount(int argc, char **argv)
+// {
+//     if (tinyusb_msc_storage_in_use_by_usb_host()) {
+//         ESP_LOGE(TAG, "storage is already exposed");
+//         return -1;
+//     }
+//     ESP_LOGI(TAG, "Unmount storage...");
+//     ESP_ERROR_CHECK(tinyusb_msc_storage_unmount());
+//     return 0;
+// }
 
-// read BASE_PATH/README.MD and print its contents
-static int console_read(int argc, char **argv)
-{
-    if (tinyusb_msc_storage_in_use_by_usb_host()) {
-        ESP_LOGE(TAG, "storage exposed over USB. Application can't read from storage.");
-        return -1;
-    }
-    ESP_LOGD(TAG, "read from storage:");
-    const char *filename = BASE_PATH "/README.MD";
-    FILE *ptr = fopen(filename, "r");
-    if (ptr == NULL) {
-        ESP_LOGE(TAG, "Filename not present - %s", filename);
-        return -1;
-    }
-    char buf[1024];
-    while (fgets(buf, 1000, ptr) != NULL) {
-        printf("%s", buf);
-    }
-    fclose(ptr);
-    return 0;
-}
+// // read BASE_PATH/README.MD and print its contents
+// static int console_read(int argc, char **argv)
+// {
+//     if (tinyusb_msc_storage_in_use_by_usb_host()) {
+//         ESP_LOGE(TAG, "storage exposed over USB. Application can't read from storage.");
+//         return -1;
+//     }
+//     ESP_LOGD(TAG, "read from storage:");
+//     const char *filename = BASE_PATH "/README.MD";
+//     FILE *ptr = fopen(filename, "r");
+//     if (ptr == NULL) {
+//         ESP_LOGE(TAG, "Filename not present - %s", filename);
+//         return -1;
+//     }
+//     char buf[1024];
+//     while (fgets(buf, 1000, ptr) != NULL) {
+//         printf("%s", buf);
+//     }
+//     fclose(ptr);
+//     return 0;
+// }
 
-// create file BASE_PATH/README.MD if it does not exist
-static int console_write(int argc, char **argv)
-{
-    if (tinyusb_msc_storage_in_use_by_usb_host()) {
-        ESP_LOGE(TAG, "storage exposed over USB. Application can't write to storage.");
-        return -1;
-    }
-    ESP_LOGD(TAG, "write to storage:");
-    const char *filename = BASE_PATH "/README.MD";
-    FILE *fd = fopen(filename, "r");
-    if (!fd) {
-        ESP_LOGW(TAG, "README.MD doesn't exist yet, creating");
-        fd = fopen(filename, "w");
-        fprintf(fd, "Mass Storage Devices are one of the most common USB devices. It use Mass Storage Class (MSC) that allow access to their internal data storage.\n");
-        fprintf(fd, "In this example, ESP chip will be recognised by host (PC) as Mass Storage Device.\n");
-        fprintf(fd, "Upon connection to USB host (PC), the example application will initialize the storage module and then the storage will be seen as removable device on PC.\n");
-        fclose(fd);
-    }
-    return 0;
-}
+// // create file BASE_PATH/README.MD if it does not exist
+// static int console_write(int argc, char **argv)
+// {
+//     if (tinyusb_msc_storage_in_use_by_usb_host()) {
+//         ESP_LOGE(TAG, "storage exposed over USB. Application can't write to storage.");
+//         return -1;
+//     }
+//     ESP_LOGD(TAG, "write to storage:");
+//     const char *filename = BASE_PATH "/README.MD";
+//     FILE *fd = fopen(filename, "r");
+//     if (!fd) {
+//         ESP_LOGW(TAG, "README.MD doesn't exist yet, creating");
+//         fd = fopen(filename, "w");
+//         fprintf(fd, "Mass Storage Devices are one of the most common USB devices. It use Mass Storage Class (MSC) that allow access to their internal data storage.\n");
+//         fprintf(fd, "In this example, ESP chip will be recognised by host (PC) as Mass Storage Device.\n");
+//         fprintf(fd, "Upon connection to USB host (PC), the example application will initialize the storage module and then the storage will be seen as removable device on PC.\n");
+//         fclose(fd);
+//     }
+//     return 0;
+// }
 
-// Show storage size and sector size
-static int console_size(int argc, char **argv)
-{
-    if (tinyusb_msc_storage_in_use_by_usb_host()) {
-        ESP_LOGE(TAG, "storage exposed over USB. Application can't access storage");
-        return -1;
-    }
-    uint32_t sec_count = tinyusb_msc_storage_get_sector_count();
-    uint32_t sec_size = tinyusb_msc_storage_get_sector_size();
-    printf("Storage Capacity %lluMB\n", ((uint64_t) sec_count) * sec_size / (1024 * 1024));
-    return 0;
-}
+// // Show storage size and sector size
+// static int console_size(int argc, char **argv)
+// {
+//     if (tinyusb_msc_storage_in_use_by_usb_host()) {
+//         ESP_LOGE(TAG, "storage exposed over USB. Application can't access storage");
+//         return -1;
+//     }
+//     uint32_t sec_count = tinyusb_msc_storage_get_sector_count();
+//     uint32_t sec_size = tinyusb_msc_storage_get_sector_size();
+//     printf("Storage Capacity %lluMB\n", ((uint64_t) sec_count) * sec_size / (1024 * 1024));
+//     return 0;
+// }
 
-// exit from application
-static int console_status(int argc, char **argv)
-{
-    printf("storage exposed over USB: %s\n", tinyusb_msc_storage_in_use_by_usb_host() ? "Yes" : "No");
-    return 0;
-}
+// // exit from application
+// static int console_status(int argc, char **argv)
+// {
+//     printf("storage exposed over USB: %s\n", tinyusb_msc_storage_in_use_by_usb_host() ? "Yes" : "No");
+//     return 0;
+// }
 
-// exit from application
-static int console_exit(int argc, char **argv)
-{
-    tinyusb_msc_storage_deinit();
-    printf("Application Exiting\n");
-    exit(0);
-    return 0;
-}
+// // exit from application
+// static int console_exit(int argc, char **argv)
+// {
+//     tinyusb_msc_storage_deinit();
+//     printf("Application Exiting\n");
+//     exit(0);
+//     return 0;
+// }
 
 #ifdef CONFIG_EXAMPLE_STORAGE_MEDIA_SPIFLASH
 static esp_err_t storage_init_spiflash(wl_handle_t *wl_handle)
@@ -357,4 +355,58 @@ void init_myfatfs()
     //     ESP_ERROR_CHECK( esp_console_cmd_register(&cmds[count]) );
     // }
     // ESP_ERROR_CHECK(esp_console_start_repl(repl));
+}
+
+
+
+int8_t IsExist(char *filename)
+{
+    FILE * f0 = fopen(filename, "r"); 
+    if (f0!=NULL)
+    {
+        fclose(f0);
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+int8_t FAT_regular_init()
+{
+    const esp_vfs_fat_mount_config_t mount_config = {
+            .max_files = 4,
+            .format_if_mount_failed = true,
+            .allocation_unit_size = CONFIG_WL_SECTOR_SIZE
+    };
+    esp_err_t err = esp_vfs_fat_spiflash_mount_rw_wl("/data", "storage", &mount_config, &s_wl_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to mount FATFS (%s)", esp_err_to_name(err));
+        return false;
+    }
+    
+    DIR *dh = opendir("/data");
+    if (!dh) {
+        if (errno == ENOENT) {
+            //If the directory is not found
+            ESP_LOGE(TAG, "Directory doesn't exist %s", "/data");
+        } else {
+            //If the directory is not readable then throw error and exit
+            ESP_LOGE(TAG, "Unable to read directory %s", "/data");
+        }
+        return -1;
+    }
+    struct dirent *d;
+    printf("##############################\n");
+    while ((d = readdir(dh)) != NULL) {
+        printf("%s\n", d->d_name);
+    }
+    printf("##############################\n");
+    return 0;
+}
+
+void FAT_unmount()
+{
+    esp_vfs_fat_spiflash_unmount_rw_wl("/data", s_wl_handle);
 }

@@ -15,9 +15,13 @@
 #include "common.h"
 #include "i2cRW.h"
 #include "imu.h"
-#include "SetSpiffs.h"
 #include <dirent.h>
 #include "fatfs.h"
+
+// #include "esp_vfs.h"
+// #include "esp_vfs_fat.h"
+// #include "esp_system.h"
+
 
 SBUS RC_DATA = {0};
 struct AccelGyroData_int32_t OFFSET_RAW = {410, 274, 1305, -309, -73, -3};
@@ -512,58 +516,87 @@ void get_mode_task(void *arg)
     
 }
 
-void test_spiffs()
-{
-    FILE* f0 = fopen("/user_partition/hello.txt", "w"); 
-    if (f0 == NULL) {
-        ESP_LOGE("TAG", "write failed");
-        return;
-    }
-    fprintf(f0, "hello world! 19:39\n");
-    fclose(f0);
-    char file_name[] = "/user_partition/hello.txt";
-    char file_name1[] = "/user_partition/hello1.txt";
-    printf("%d %d\n", IsExist(file_name), IsExist(file_name1));
-    vTaskDelay(1000/portTICK_PERIOD_MS);
-    remove(file_name);
-    vTaskDelay(1000/portTICK_PERIOD_MS);
-    printf("%d %d\n", IsExist(file_name), IsExist(file_name1));
+// void test_spiffs()
+// {
+//     FILE* f0 = fopen("/user_partition/hello.txt", "w"); 
+//     if (f0 == NULL) {
+//         ESP_LOGE("TAG", "write failed");
+//         return;
+//     }
+//     fprintf(f0, "hello world! 19:39\n");
+//     fclose(f0);
+//     char file_name[] = "/user_partition/hello.txt";
+//     char file_name1[] = "/user_partition/hello1.txt";
+//     printf("%d %d\n", IsExist(file_name), IsExist(file_name1));
+//     vTaskDelay(1000/portTICK_PERIOD_MS);
+//     remove(file_name);
+//     vTaskDelay(1000/portTICK_PERIOD_MS);
+//     printf("%d %d\n", IsExist(file_name), IsExist(file_name1));
     
-    //char line[64];
-    // FILE* f = fopen("/user_partition/hello.txt", "r");
-    // if (f == NULL) {
-    //     ESP_LOGE("TAG", "read failed");
-    //     return;
-    // }
-    // fgets(line, sizeof(line), f);
-    // fclose(f); 
+//     //char line[64];
+//     // FILE* f = fopen("/user_partition/hello.txt", "r");
+//     // if (f == NULL) {
+//     //     ESP_LOGE("TAG", "read failed");
+//     //     return;
+//     // }
+//     // fgets(line, sizeof(line), f);
+//     // fclose(f); 
 
-    // printf("%s:\n%s\n", "/user_partition/hello.txt", line);
-}
+//     // printf("%s:\n%s\n", "/user_partition/hello.txt", line);
+// }
 
 void init_file()
 {
-    char main_param[50] = "/user_partition/main_param.txt";
+    char main_param[32] = "/data/main_param.TXT";
     int times = 0;
     FILE* fmain;
     char paramstr[100];
-    //printf("%d\n", IsExist(main_param));
-    sw1 = gpio_get_level(2);
-    sw2 = gpio_get_level(1);
     if(!IsExist(main_param))
     {
         printf("CREATING MAIN PARAM\n");
         fmain = fopen(main_param, "w");
-        fprintf(fmain, "%5d\n", 0);
-        fclose(fmain);
+        if(fmain != NULL)
+        {
+            fprintf(fmain, "%5d\n", 0);
+            fclose(fmain);
+        }
+        else{
+            printf("cannot open\n");
+        }
     }
-    else if(sw1 && sw2)
+    fmain = fopen(main_param, "r");
+    if (fmain == NULL) {
+        printf("FMAIN OPEN FAILED<READ>\n");
+    }
+    else{
+        fgets(paramstr, sizeof(paramstr) ,fmain);
+        char power_times[6] = {paramstr[0], paramstr[1], paramstr[2], paramstr[3], paramstr[4], 0};
+        times = atoi(power_times) + 1;
+        fclose(fmain);
+        }
+
+    fmain = fopen(main_param, "w");
+    if (fmain == NULL) {
+        printf("FMAIN OPEN FAILED<WRITE>\n");
+    }
+    else
     {
-        printf("CLEAR MAIN PARAM\n");
-        fmain = fopen(main_param, "w");
-        fprintf(fmain, "%5d\n", 0);
+        fprintf(fmain,"%5d\n", times);
+        printf("POWER TIMES:%5d\n", times);
         fclose(fmain);
     }
+}
+
+void clear_file()
+{
+    char main_param[50] = "/data/main_param.txt";
+    int times = 0;
+    FILE* fmain;
+    char paramstr[100];
+    printf("CLEAR MAIN PARAM\n");
+    fmain = fopen(main_param, "w");
+    fprintf(fmain, "%5d\n", 0);
+    fclose(fmain);
 
     fmain = fopen(main_param, "r");
     if (fmain == NULL) {
@@ -588,14 +621,35 @@ void init_file()
     }
 }
 
+uint8_t mode_switch()
+{
+    sw1 = gpio_get_level(2);
+    sw2 = gpio_get_level(1);
+    if(!sw1 && !sw2)
+    {
+        FAT_regular_init();
+        init_file();
+    }
+    else if(sw1 && !sw2)
+    {
+        init_myfatfs();
+    }
+    else if(sw1 && sw2)
+    {
+        FAT_regular_init();
+        clear_file();
+    }
+    return 0;
+}
+
 void app_main(void)
 {
     vTaskDelay(200/portTICK_PERIOD_MS);
     printf("INITIALIZING...\n");
     //user_partition_init();
     HW_init();
+    mode_switch();
     //init_file();
-    init_myfatfs();
     //test_spiffs();
     //remove("/user_partition/hello.txt");
     printf("INITIALIZATION COMPLETED\n");
@@ -604,5 +658,5 @@ void app_main(void)
     xTaskCreate(get_imu_task, "get_imu_task", 1024*4, NULL, 1, NULL);
     xTaskCreate(PID_task, "PID_task", 1024*4,  NULL, 1, NULL);
     //xTaskCreate(clear_I, "clear_I", 1024,  NULL, 1, NULL);
-    xTaskCreate(get_mode_task, "get_mode_task", 1024*4,  NULL, 1, NULL);
+    //xTaskCreate(get_mode_task, "get_mode_task", 1024*4,  NULL, 1, NULL);
 }
