@@ -17,6 +17,7 @@
 #include "imu.h"
 #include <dirent.h>
 #include "fatfs.h"
+#include "jsmn.h"
 
 // #include "esp_vfs.h"
 // #include "esp_vfs_fat.h"
@@ -621,6 +622,68 @@ void clear_file()
     }
 }
 
+static int jsoneq(const char *json, jsmntok_t *tok, const char *s) {
+    if (tok->type == JSMN_STRING && (int)strlen(s) == tok->end - tok->start && 
+        strncmp(json + tok->start, s, tok->end - tok->start) == 0) 
+    {
+        return 0;
+    }
+  return -1;
+}
+
+void test_json()
+{
+    char json_contents[128] = {0};
+    FILE* fjson = fopen("/data/testjson.json", "r");
+    if(fjson != NULL)
+    {
+        fgets(json_contents, sizeof(json_contents),fjson);
+        int r, i;
+        jsmn_parser p;
+        jsmntok_t t[128]; /* We expect no more than 128 tokens */
+        jsmn_init(&p);
+        r = jsmn_parse(&p, json_contents, strlen(json_contents), t, sizeof(t) / sizeof(t[0]));
+        for (i = 1; i < r; i++) {
+        if (jsoneq(json_contents, &t[i], "NAME") == 0) {
+        /* We may use strndup() to fetch string value */
+        printf("- NAME: %.*s\n", t[i + 1].end - t[i + 1].start,
+                json_contents + t[i + 1].start);
+        i++;
+        } 
+        else if (jsoneq(json_contents, &t[i], "TIMES") == 0) {
+            /* We may additionally check if the value is either "true" or "false" */
+            printf("- TIMES: %.*s\n", t[i + 1].end - t[i + 1].start,
+                    json_contents + t[i + 1].start);
+            i++;
+        } 
+        else if (jsoneq(json_contents, &t[i], "KD") == 0) {
+            /* We may want to do strtol() here to get numeric value */
+            printf("- KD: %.*s\n", t[i + 1].end - t[i + 1].start,
+                    json_contents + t[i + 1].start);
+            i++;
+        } 
+        else if (jsoneq(json_contents, &t[i], "PID") == 0) {
+            int j;
+            printf("- PID:\n");
+            if (t[i + 1].type != JSMN_ARRAY) {
+                continue; /* We expect groups to be an array of strings */
+            }
+            for (j = 0; j < t[i + 1].size; j++) {
+                jsmntok_t *g = &t[i + j + 2];
+                printf("  * %.*s\n", g->end - g->start, json_contents + g->start);
+            }
+            i += t[i + 1].size + 1;
+        } 
+        else {
+            printf("Unexpected key: %.*s\n", t[i].end - t[i].start, json_contents + t[i].start);
+        }
+        }
+    }
+    else{
+        printf("Read json failed!\n");
+    }
+}
+
 uint8_t mode_switch()
 {
     sw1 = gpio_get_level(2);
@@ -629,6 +692,7 @@ uint8_t mode_switch()
     {
         FAT_regular_init();
         init_file();
+        test_json();
     }
     else if(sw1 && !sw2)
     {
@@ -642,6 +706,8 @@ uint8_t mode_switch()
     return 0;
 }
 
+
+
 void app_main(void)
 {
     vTaskDelay(200/portTICK_PERIOD_MS);
@@ -649,6 +715,7 @@ void app_main(void)
     //user_partition_init();
     HW_init();
     mode_switch();
+    
     //init_file();
     //test_spiffs();
     //remove("/user_partition/hello.txt");
