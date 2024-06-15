@@ -385,28 +385,45 @@ int8_t FAT_regular_init()
         ESP_LOGE(TAG, "Failed to mount FATFS (%s)", esp_err_to_name(err));
         return false;
     }
-    
-    DIR *dh = opendir("/data");
-    if (!dh) {
-        if (errno == ENOENT) {
-            //If the directory is not found
-            ESP_LOGE(TAG, "Directory doesn't exist %s", "/data");
-        } else {
-            //If the directory is not readable then throw error and exit
-            ESP_LOGE(TAG, "Unable to read directory %s", "/data");
-        }
-        return -1;
-    }
-    struct dirent *d;
-    printf("##############################\n");
-    while ((d = readdir(dh)) != NULL) {
-        printf("%s\n", d->d_name);
-    }
-    printf("##############################\n");
+    vTaskDelay(500/portTICK_PERIOD_MS);
+    // DIR *dh = opendir("/data");
+    // if (!dh) {
+    //     if (errno == ENOENT) {
+    //         //If the directory is not found
+    //         ESP_LOGE(TAG, "Directory doesn't exist %s", "/data");
+    //     } else {
+    //         //If the directory is not readable then throw error and exit
+    //         ESP_LOGE(TAG, "Unable to read directory %s", "/data");
+    //     }
+    //     return -1;
+    // }
+    // struct dirent *d;
+    // printf("##############################\n");
+    // while ((d = readdir(dh)) != NULL) {
+    //     printf("%s\n", d->d_name);
+    // }
+    // printf("##############################\n");
     return 0;
 }
 
 void FAT_unmount()
 {
     esp_vfs_fat_spiflash_unmount_rw_wl("/data", s_wl_handle);
+}
+
+int8_t FAT_format_init()
+{
+    const esp_vfs_fat_mount_config_t mount_config = {
+            .max_files = 4,
+            .format_if_mount_failed = true,
+            .allocation_unit_size = CONFIG_WL_SECTOR_SIZE
+    };
+    esp_err_t err = esp_vfs_fat_spiflash_mount_rw_wl("/data", "storage", &mount_config, &s_wl_handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "Failed to mount FATFS (%s)", esp_err_to_name(err));
+        return -1;
+    }
+    esp_vfs_fat_spiflash_format_rw_wl("/data", "storage");
+    vTaskDelay(500/portTICK_PERIOD_MS);
+    return 0;
 }

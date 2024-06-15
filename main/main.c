@@ -56,6 +56,266 @@ DMotor motor_delta = {0, 0, 0, 0, 1, 0.2, 0.2, 0.2};   //ROLL PITCH YAW
 float hover_percentage = 0.3;
 uint8_t sw1=0, sw2=0;
 
+char log_path[32] = {0};
+//unsigned long run_time = 0;
+
+void HW_init();
+uint8_t mode_switch();
+
+static void rx_task(void *arg);
+static void motor_out_task(void *arg);
+static void get_imu_task(void *arg);
+static void PID_task(void *arg);
+
+// void clear_I(){
+//     while (1)
+//     {
+//         integ_clr_flag[0] = 1;
+//         integ_clr_flag[1] = 1;
+//         integ_clr_flag[2] = 1;
+//         integ_clr_flag[3] = 1;
+//         vTaskDelay(200/portTICK_PERIOD_MS);
+//     }
+    
+// }
+
+void get_mode_task(void *arg)
+{
+    
+    while (1)
+    {
+        sw1 = gpio_get_level(2);
+        sw2 = gpio_get_level(1);
+        printf("sw1 %d sw2 %d\n", sw1, sw2);
+        vTaskDelay(500/portTICK_PERIOD_MS);
+    }
+    
+    
+}
+
+// void test_spiffs()
+// {
+//     FILE* f0 = fopen("/user_partition/hello.txt", "w"); 
+//     if (f0 == NULL) {
+//         ESP_LOGE("TAG", "write failed");
+//         return;
+//     }
+//     fprintf(f0, "hello world! 19:39\n");
+//     fclose(f0);
+//     char file_name[] = "/user_partition/hello.txt";
+//     char file_name1[] = "/user_partition/hello1.txt";
+//     printf("%d %d\n", IsExist(file_name), IsExist(file_name1));
+//     vTaskDelay(1000/portTICK_PERIOD_MS);
+//     remove(file_name);
+//     vTaskDelay(1000/portTICK_PERIOD_MS);
+//     printf("%d %d\n", IsExist(file_name), IsExist(file_name1));
+    
+//     //char line[64];
+//     // FILE* f = fopen("/user_partition/hello.txt", "r");
+//     // if (f == NULL) {
+//     //     ESP_LOGE("TAG", "read failed");
+//     //     return;
+//     // }
+//     // fgets(line, sizeof(line), f);
+//     // fclose(f); 
+
+//     // printf("%s:\n%s\n", "/user_partition/hello.txt", line);
+// }
+
+int8_t creat_file_consv(char * path)
+{
+    if(!IsExist(path))
+    {
+        FILE* fp;
+        printf("CREATING MAIN PARAM\n");
+        fp = fopen(path, "w");
+        if(fp != NULL)
+        {
+            fclose(fp);
+        }
+        else{
+            printf("cannot open\n");
+            return -1;
+        }
+    }
+    return 0;
+}
+
+
+
+void init_file()
+{
+    char main_param[32] = "/data/main_param.TXT";
+    int times = 0;
+    FILE* fmain;
+    char paramstr[100];
+    if(!IsExist(main_param))
+    {
+        printf("CREATING MAIN PARAM\n");
+        fmain = fopen(main_param, "w");
+        if(fmain != NULL)
+        {
+            fprintf(fmain, "%5d\n", 0);
+            fclose(fmain);
+        }
+        else{
+            printf("cannot open\n");
+        }
+    }
+    fmain = fopen(main_param, "r");
+    if (fmain == NULL) {
+        printf("FMAIN OPEN FAILED<READ>\n");
+    }
+    else{
+        fgets(paramstr, sizeof(paramstr) ,fmain);
+        char power_times[6] = {paramstr[0], paramstr[1], paramstr[2], paramstr[3], paramstr[4], 0};
+        times = atoi(power_times) + 1;
+        fclose(fmain);
+        }
+
+    fmain = fopen(main_param, "w");
+    if (fmain == NULL) {
+        printf("FMAIN OPEN FAILED<WRITE>\n");
+    }
+    else
+    {
+        fprintf(fmain,"%5d\n", times);
+        printf("POWER TIMES:%5d\n", times);
+        fclose(fmain);
+    }
+
+    
+    sprintf(log_path, "/data/log_0000.csv");
+    FILE * fplog = fopen(log_path, "w");
+    fprintf(fplog, "time, roll, pitch, gyroZ,\n");
+    fclose(fplog);
+}
+
+void clear_file()
+{
+    char main_param[50] = "/data/main_param.txt";
+    int times = 0;
+    FILE* fmain;
+    char paramstr[100];
+    printf("CLEAR MAIN PARAM\n");
+    fmain = fopen(main_param, "w");
+    fprintf(fmain, "%5d\n", 0);
+    fclose(fmain);
+
+    fmain = fopen(main_param, "r");
+    if (fmain == NULL) {
+        printf("FMAIN OPEN FAILED<READ>\n");
+    }
+    else{
+        fgets(paramstr, sizeof(paramstr) ,fmain);
+        char power_times[6] = {paramstr[0], paramstr[1], paramstr[2], paramstr[3], paramstr[4], 0};
+        times = atoi(power_times) + 1;
+        fclose(fmain);
+        }
+
+    fmain = fopen(main_param, "w");
+    if (fmain == NULL) {
+        printf("FMAIN OPEN FAILED<WRITE>\n");
+    }
+    else
+    {
+        fprintf(fmain,"%5d\n", times);
+        printf("POWER TIMES:%5d\n", times);
+        fclose(fmain);
+    }
+}
+
+static int jsoneq(const char *json, jsmntok_t *tok, const char *s) {
+    if (tok->type == JSMN_STRING && (int)strlen(s) == tok->end - tok->start && 
+        strncmp(json + tok->start, s, tok->end - tok->start) == 0) 
+    {
+        return 0;
+    }
+  return -1;
+}
+
+void test_json()
+{
+    char json_contents[128] = {0};
+    FILE* fjson = fopen("/data/testjson.json", "r");
+    if(fjson != NULL)
+    {
+        fgets(json_contents, sizeof(json_contents),fjson);
+        int r, i;
+        jsmn_parser p;
+        jsmntok_t t[128]; /* We expect no more than 128 tokens */
+        jsmn_init(&p);
+        r = jsmn_parse(&p, json_contents, strlen(json_contents), t, sizeof(t) / sizeof(t[0]));
+        for (i = 1; i < r; i++) {
+        if (jsoneq(json_contents, &t[i], "NAME") == 0) {
+        /* We may use strndup() to fetch string value */
+        printf("- NAME: %.*s\n", t[i + 1].end - t[i + 1].start,
+                json_contents + t[i + 1].start);
+        i++;
+        } 
+        else if (jsoneq(json_contents, &t[i], "TIMES") == 0) {
+            /* We may additionally check if the value is either "true" or "false" */
+            printf("- TIMES: %.*s\n", t[i + 1].end - t[i + 1].start,
+                    json_contents + t[i + 1].start);
+            i++;
+        } 
+        else if (jsoneq(json_contents, &t[i], "KD") == 0) {
+            /* We may want to do strtol() here to get numeric value */
+            printf("- KD: %.*s\n", t[i + 1].end - t[i + 1].start,
+                    json_contents + t[i + 1].start);
+            i++;
+        } 
+        else if (jsoneq(json_contents, &t[i], "PID") == 0) {
+            int j;
+            printf("- PID:\n");
+            if (t[i + 1].type != JSMN_ARRAY) {
+                continue; /* We expect groups to be an array of strings */
+            }
+            for (j = 0; j < t[i + 1].size; j++) {
+                jsmntok_t *g = &t[i + j + 2];
+                printf("  * %.*s\n", g->end - g->start, json_contents + g->start);
+            }
+            i += t[i + 1].size + 1;
+        } 
+        else {
+            printf("Unexpected key: %.*s\n", t[i].end - t[i].start, json_contents + t[i].start);
+        }
+        }
+    }
+    else{
+        printf("Read json failed!\n");
+    }
+}
+
+
+static void save_data_task(void *arg)
+{
+    while (1)
+    {
+        int ms_clock = clock();
+        FILE * fplog = fopen(log_path, "a");
+        fprintf(fplog, "%d, %f, %f, %f,\n",ms_clock, PYHdata.roll, PYHdata.pitch, PYHdata.gyroZ);
+        fclose(fplog);
+        vTaskDelay(10/portTICK_PERIOD_MS);
+    }
+}
+
+void app_main(void)
+{
+    vTaskDelay(200/portTICK_PERIOD_MS);
+    printf("INITIALIZING...\n");
+    //user_partition_init();
+    HW_init();
+    mode_switch();
+    
+    //init_file();
+    //test_spiffs();
+    //remove("/user_partition/hello.txt");
+    
+    //xTaskCreate(clear_I, "clear_I", 1024,  NULL, 1, NULL);
+    //xTaskCreate(get_mode_task, "get_mode_task", 1024*4,  NULL, 1, NULL);
+}
+
 void HW_init()
 {
     uart_config_t uart_config = {
@@ -186,6 +446,37 @@ void HW_init()
 	};
     gpio_config(&ioConfig);
 }
+
+uint8_t mode_switch()
+{
+    sw1 = gpio_get_level(2);
+    sw2 = gpio_get_level(1);
+    if(!sw1 && !sw2)
+    {
+        FAT_regular_init();
+        init_file();
+        //test_json();
+        printf("INITIALIZATION COMPLETED\n");
+        xTaskCreate(rx_task, "uart_rx_task", 1024*4, NULL, 1, NULL);
+        xTaskCreate(motor_out_task, "motor_out_task", 1024*4, NULL, 1, NULL);
+        xTaskCreate(get_imu_task, "get_imu_task", 1024*4, NULL, 8, NULL);
+        xTaskCreate(PID_task, "PID_task", 1024*4,  NULL, 1, NULL);
+        xTaskCreate(save_data_task, "save_data_task", 1024*4,  NULL, 4, NULL);
+        
+    }
+    else if(sw1 && !sw2)
+    {
+        init_myfatfs();
+    }
+    else if(sw1 && sw2)
+    {
+        FAT_format_init();
+        FAT_unmount();
+        //init_myfatfs();
+    }
+    return 0;
+}
+
 
 static void rx_task(void *arg)
 {
@@ -340,21 +631,6 @@ static void get_imu_task(void *arg)
     PYHdata = get_PHYSICS_Data();
     while (1)
     {
-        //imu_data_raw = get_raw_GY_87_data16();
-        //printf("%x %x %x ", list3[0], list3[1], list3[2]);
-        //printf("ROLL %d, PITCH %d, YAW %d\n", (int16_t)imu_data_raw.roll , (int16_t)imu_data_raw.pitch , (int16_t)imu_data_raw.yaw );
-        // for(int i=3; i<20; i++)
-        // {
-        //     printf("%d ", read_register(HMC5883_ADDR, i));
-        // }
-        // printf("\n");
-        //read_register_stream();
-        // Last_attitude.gyroX = PYHdata.gyroX;
-        // Last_attitude.gyroY = PYHdata.gyroY;
-        // Last_attitude.gyroZ = PYHdata.gyroZ;
-        // Last_attitude.roll = PYHdata.roll;
-        // Last_attitude.pitch = PYHdata.pitch;
-        // Last_attitude.yaw = PYHdata.yaw;
         PYHdata = get_PHYSICS_Data();
         
         // printf("##################\n");
@@ -365,11 +641,11 @@ static void get_imu_task(void *arg)
         // printf("%f\n", PYHdata.pitch*180.0/PI);
         // printf("%f\n", PYHdata.yaw*180.0/PI);
         // printf("##################\n");
-        vTaskDelay(25/portTICK_PERIOD_MS);
+        vTaskDelay(10/portTICK_PERIOD_MS);
     }
 }
 
-void PID_task()
+static void PID_task(void *arg)
 {
     while(1){
         
@@ -491,239 +767,3 @@ void PID_task()
     }
 }
 
-// void clear_I(){
-//     while (1)
-//     {
-//         integ_clr_flag[0] = 1;
-//         integ_clr_flag[1] = 1;
-//         integ_clr_flag[2] = 1;
-//         integ_clr_flag[3] = 1;
-//         vTaskDelay(200/portTICK_PERIOD_MS);
-//     }
-    
-// }
-
-void get_mode_task(void *arg)
-{
-    
-    while (1)
-    {
-        sw1 = gpio_get_level(2);
-        sw2 = gpio_get_level(1);
-        printf("sw1 %d sw2 %d\n", sw1, sw2);
-        vTaskDelay(500/portTICK_PERIOD_MS);
-    }
-    
-    
-}
-
-// void test_spiffs()
-// {
-//     FILE* f0 = fopen("/user_partition/hello.txt", "w"); 
-//     if (f0 == NULL) {
-//         ESP_LOGE("TAG", "write failed");
-//         return;
-//     }
-//     fprintf(f0, "hello world! 19:39\n");
-//     fclose(f0);
-//     char file_name[] = "/user_partition/hello.txt";
-//     char file_name1[] = "/user_partition/hello1.txt";
-//     printf("%d %d\n", IsExist(file_name), IsExist(file_name1));
-//     vTaskDelay(1000/portTICK_PERIOD_MS);
-//     remove(file_name);
-//     vTaskDelay(1000/portTICK_PERIOD_MS);
-//     printf("%d %d\n", IsExist(file_name), IsExist(file_name1));
-    
-//     //char line[64];
-//     // FILE* f = fopen("/user_partition/hello.txt", "r");
-//     // if (f == NULL) {
-//     //     ESP_LOGE("TAG", "read failed");
-//     //     return;
-//     // }
-//     // fgets(line, sizeof(line), f);
-//     // fclose(f); 
-
-//     // printf("%s:\n%s\n", "/user_partition/hello.txt", line);
-// }
-
-void init_file()
-{
-    char main_param[32] = "/data/main_param.TXT";
-    int times = 0;
-    FILE* fmain;
-    char paramstr[100];
-    if(!IsExist(main_param))
-    {
-        printf("CREATING MAIN PARAM\n");
-        fmain = fopen(main_param, "w");
-        if(fmain != NULL)
-        {
-            fprintf(fmain, "%5d\n", 0);
-            fclose(fmain);
-        }
-        else{
-            printf("cannot open\n");
-        }
-    }
-    fmain = fopen(main_param, "r");
-    if (fmain == NULL) {
-        printf("FMAIN OPEN FAILED<READ>\n");
-    }
-    else{
-        fgets(paramstr, sizeof(paramstr) ,fmain);
-        char power_times[6] = {paramstr[0], paramstr[1], paramstr[2], paramstr[3], paramstr[4], 0};
-        times = atoi(power_times) + 1;
-        fclose(fmain);
-        }
-
-    fmain = fopen(main_param, "w");
-    if (fmain == NULL) {
-        printf("FMAIN OPEN FAILED<WRITE>\n");
-    }
-    else
-    {
-        fprintf(fmain,"%5d\n", times);
-        printf("POWER TIMES:%5d\n", times);
-        fclose(fmain);
-    }
-}
-
-void clear_file()
-{
-    char main_param[50] = "/data/main_param.txt";
-    int times = 0;
-    FILE* fmain;
-    char paramstr[100];
-    printf("CLEAR MAIN PARAM\n");
-    fmain = fopen(main_param, "w");
-    fprintf(fmain, "%5d\n", 0);
-    fclose(fmain);
-
-    fmain = fopen(main_param, "r");
-    if (fmain == NULL) {
-        printf("FMAIN OPEN FAILED<READ>\n");
-    }
-    else{
-        fgets(paramstr, sizeof(paramstr) ,fmain);
-        char power_times[6] = {paramstr[0], paramstr[1], paramstr[2], paramstr[3], paramstr[4], 0};
-        times = atoi(power_times) + 1;
-        fclose(fmain);
-        }
-
-    fmain = fopen(main_param, "w");
-    if (fmain == NULL) {
-        printf("FMAIN OPEN FAILED<WRITE>\n");
-    }
-    else
-    {
-        fprintf(fmain,"%5d\n", times);
-        printf("POWER TIMES:%5d\n", times);
-        fclose(fmain);
-    }
-}
-
-static int jsoneq(const char *json, jsmntok_t *tok, const char *s) {
-    if (tok->type == JSMN_STRING && (int)strlen(s) == tok->end - tok->start && 
-        strncmp(json + tok->start, s, tok->end - tok->start) == 0) 
-    {
-        return 0;
-    }
-  return -1;
-}
-
-void test_json()
-{
-    char json_contents[128] = {0};
-    FILE* fjson = fopen("/data/testjson.json", "r");
-    if(fjson != NULL)
-    {
-        fgets(json_contents, sizeof(json_contents),fjson);
-        int r, i;
-        jsmn_parser p;
-        jsmntok_t t[128]; /* We expect no more than 128 tokens */
-        jsmn_init(&p);
-        r = jsmn_parse(&p, json_contents, strlen(json_contents), t, sizeof(t) / sizeof(t[0]));
-        for (i = 1; i < r; i++) {
-        if (jsoneq(json_contents, &t[i], "NAME") == 0) {
-        /* We may use strndup() to fetch string value */
-        printf("- NAME: %.*s\n", t[i + 1].end - t[i + 1].start,
-                json_contents + t[i + 1].start);
-        i++;
-        } 
-        else if (jsoneq(json_contents, &t[i], "TIMES") == 0) {
-            /* We may additionally check if the value is either "true" or "false" */
-            printf("- TIMES: %.*s\n", t[i + 1].end - t[i + 1].start,
-                    json_contents + t[i + 1].start);
-            i++;
-        } 
-        else if (jsoneq(json_contents, &t[i], "KD") == 0) {
-            /* We may want to do strtol() here to get numeric value */
-            printf("- KD: %.*s\n", t[i + 1].end - t[i + 1].start,
-                    json_contents + t[i + 1].start);
-            i++;
-        } 
-        else if (jsoneq(json_contents, &t[i], "PID") == 0) {
-            int j;
-            printf("- PID:\n");
-            if (t[i + 1].type != JSMN_ARRAY) {
-                continue; /* We expect groups to be an array of strings */
-            }
-            for (j = 0; j < t[i + 1].size; j++) {
-                jsmntok_t *g = &t[i + j + 2];
-                printf("  * %.*s\n", g->end - g->start, json_contents + g->start);
-            }
-            i += t[i + 1].size + 1;
-        } 
-        else {
-            printf("Unexpected key: %.*s\n", t[i].end - t[i].start, json_contents + t[i].start);
-        }
-        }
-    }
-    else{
-        printf("Read json failed!\n");
-    }
-}
-
-uint8_t mode_switch()
-{
-    sw1 = gpio_get_level(2);
-    sw2 = gpio_get_level(1);
-    if(!sw1 && !sw2)
-    {
-        FAT_regular_init();
-        init_file();
-        test_json();
-    }
-    else if(sw1 && !sw2)
-    {
-        init_myfatfs();
-    }
-    else if(sw1 && sw2)
-    {
-        FAT_regular_init();
-        clear_file();
-    }
-    return 0;
-}
-
-
-
-void app_main(void)
-{
-    vTaskDelay(200/portTICK_PERIOD_MS);
-    printf("INITIALIZING...\n");
-    //user_partition_init();
-    HW_init();
-    mode_switch();
-    
-    //init_file();
-    //test_spiffs();
-    //remove("/user_partition/hello.txt");
-    printf("INITIALIZATION COMPLETED\n");
-    xTaskCreate(rx_task, "uart_rx_task", 1024*4, NULL, 1, NULL);
-    xTaskCreate(motor_out_task, "motor_out_task", 1024*4, NULL, 1, NULL);
-    xTaskCreate(get_imu_task, "get_imu_task", 1024*4, NULL, 1, NULL);
-    xTaskCreate(PID_task, "PID_task", 1024*4,  NULL, 1, NULL);
-    //xTaskCreate(clear_I, "clear_I", 1024,  NULL, 1, NULL);
-    //xTaskCreate(get_mode_task, "get_mode_task", 1024*4,  NULL, 1, NULL);
-}

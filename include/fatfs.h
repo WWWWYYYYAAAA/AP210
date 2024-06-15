@@ -12,6 +12,10 @@
 #include "esp_vfs.h"
 #include "esp_vfs_fat.h"
 #include "esp_system.h"
+
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
 #ifdef CONFIG_EXAMPLE_STORAGE_MEDIA_SDMMCCARD
 #include "diskio_impl.h"
 #include "diskio_sdmmc.h"
@@ -24,5 +28,5 @@ void init_myfatfs();
 int8_t IsExist(char *filename);
 int8_t FAT_regular_init();
 void FAT_unmount();
-
+int8_t FAT_format_init();
 #endif
