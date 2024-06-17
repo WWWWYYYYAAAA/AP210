@@ -3,12 +3,12 @@
 QIO 80Hz(==freq(psram)) 16MB
 ...
 ## mode
-sw2 | sw1 | mode
---- | --- | ----
- 0  |  0  | flight
- 0  |  1  | parament_check
- 1  |  0  | -
- 1  |  1  | reset
+sw2 | sw1 | boot_mode | \ |
+--- | --- | ---- | --- |
+ 0  |  0  | flight | \ |
+ 0  |  1  | flash_msc | close_log_file |
+ 1  |  0  | dscard_msc | close_log_file |
+ 1  |  1  | reset | \ |
 
 ## Image
 <left class="half">

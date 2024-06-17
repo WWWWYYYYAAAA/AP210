@@ -66,7 +66,9 @@ static void rx_task(void *arg);
 static void motor_out_task(void *arg);
 static void get_imu_task(void *arg);
 static void PID_task(void *arg);
-
+static void flight_task(void *arg);
+static void get_data_task(void *arg);
+static void control_task(void *arg);
 // void clear_I(){
 //     while (1)
 //     {
@@ -457,12 +459,14 @@ uint8_t mode_switch()
         init_file();
         //test_json();
         printf("INITIALIZATION COMPLETED\n");
-        xTaskCreate(rx_task, "uart_rx_task", 1024*4, NULL, 1, NULL);
-        xTaskCreate(motor_out_task, "motor_out_task", 1024*4, NULL, 1, NULL);
-        xTaskCreate(get_imu_task, "get_imu_task", 1024*4, NULL, 8, NULL);
-        xTaskCreate(PID_task, "PID_task", 1024*4,  NULL, 1, NULL);
-        xTaskCreate(save_data_task, "save_data_task", 1024*4,  NULL, 4, NULL);
-        
+        // xTaskCreate(rx_task, "uart_rx_task", 1024*4, NULL, 1, NULL);
+        // xTaskCreate(motor_out_task, "motor_out_task", 1024*4, NULL, 1, NULL);
+        // xTaskCreate(get_imu_task, "get_imu_task", 1024*4, NULL, 8, NULL);
+        // xTaskCreate(PID_task, "PID_task", 1024*4,  NULL, 1, NULL);
+        // xTaskCreate(save_data_task, "save_data_task", 1024*4,  NULL, 4, NULL);
+        // flight_task(NULL);
+        xTaskCreate(get_data_task, "get_data_task", 1024*16,  NULL, 1, NULL);
+        xTaskCreate(control_task, "control_task", 1024*16,  NULL, 1, NULL);
     }
     else if(sw1 && !sw2)
     {
@@ -767,3 +771,576 @@ static void PID_task(void *arg)
     }
 }
 
+static void get_data_task(void *arg)
+{
+    //rx
+    uint8_t data[64] = {0};
+    uint16_t byte_list[24] = {0};
+    int i;
+    //imu
+    PYHdata = get_PHYSICS_Data();
+    while (1)
+    {
+        //rx
+        int length = 0;
+        ESP_ERROR_CHECK(uart_get_buffered_data_len(UART_NUM_2, (size_t*)&length));
+        length = uart_read_bytes(UART_NUM_2, data, length, 5);
+        for(i=0; i<128; i++)
+        {   
+            if(data[i]==0x0f)
+            {
+                break;
+            }
+        }
+        for(int j=0; j<24; j++)
+        {
+            byte_list[j] = data[i+j+1];
+        }
+
+        // out_cha[0] = ((byte_list[0]>>0 | (byte_list[1]<<8)) & 2047);
+        // out_cha[1] = ((byte_list[1]>>3 | (byte_list[2]<<5)) & 2047);
+        // out_cha[2] = ((byte_list[2]>>6 | (byte_list[3]<<2) | (byte_list[4]<<10)) & 2047);
+        // out_cha[3] = ((byte_list[4]>>1 | (byte_list[5]<<7)) & 2047);
+        // out_cha[4] = ((byte_list[5]>>4 | (byte_list[6]<<4)) & 2047);
+        // out_cha[5] = ((byte_list[6]>>7 | (byte_list[7]<<1) | (byte_list[8]<<9)) & 2047);
+        // out_cha[6] = ((byte_list[8]>>2 | (byte_list[9]<<6)) & 2047);
+        // out_cha[7] = ((byte_list[9]>>5 | (byte_list[10]<<3)) & 2047);
+        // out_cha[8] = ((byte_list[11]>>0 | (byte_list[12]<<8)) & 2047);
+        // out_cha[9] = ((byte_list[12]>>3 | (byte_list[13]<<5)) & 2047);
+        // out_cha[10] = ((byte_list[13]>>6 | (byte_list[14]<<2) | (byte_list[15]<<10)) & 2047);
+        // out_cha[11] = ((byte_list[15]>>1 | (byte_list[16]<<7)) & 2047);
+        // out_cha[12] = ((byte_list[16]>>4 | (byte_list[17]<<4)) & 2047);
+        // out_cha[13] = ((byte_list[17]>>7 | (byte_list[18]<<1) | (byte_list[19]<<9)) & 2047);
+        // out_cha[14] = ((byte_list[19]>>2 | (byte_list[20]<<6)) & 2047);
+        // out_cha[15] = ((byte_list[20]>>5 | (byte_list[21]<<3)) & 2047);
+        // printf("|");
+        // for(i=0; i<PWM_CHANNEL_NUM; i++)
+        // {
+        //     printf("CH%d %4d|", i+1, out_cha[i]);
+        // }
+        // printf("\n");
+
+        RC_DATA.CH1 = ((byte_list[0]>>0 | (byte_list[1]<<8)) & 2047);
+        RC_DATA.CH2 = ((byte_list[1]>>3 | (byte_list[2]<<5)) & 2047);
+        RC_DATA.CH3 = ((byte_list[2]>>6 | (byte_list[3]<<2) | (byte_list[4]<<10)) & 2047);
+        RC_DATA.CH4 = ((byte_list[4]>>1 | (byte_list[5]<<7)) & 2047);
+        RC_DATA.CH5 = ((byte_list[5]>>4 | (byte_list[6]<<4)) & 2047);
+        RC_DATA.CH6 = ((byte_list[6]>>7 | (byte_list[7]<<1) | (byte_list[8]<<9)) & 2047);
+        RC_DATA.CH7 = ((byte_list[8]>>2 | (byte_list[9]<<6)) & 2047);
+        RC_DATA.CH8 = ((byte_list[9]>>5 | (byte_list[10]<<3)) & 2047);
+        RC_CHECK = byte_list[22];
+        //printf("%d %d\n", (int)byte_list[22], (int)byte_list[23]);
+        // printf("CH1 %4d|", RC_DATA.CH1);
+        // printf("CH2 %4d|", RC_DATA.CH2);
+        // printf("CH3 %4d|", RC_DATA.CH3);
+        // printf("CH4 %4d|", RC_DATA.CH4);
+        // printf("\n");
+        
+        //get imu
+        PYHdata = get_PHYSICS_Data();
+            
+        // printf("##################\n");
+        // printf("%f\n", PYHdata.accelX);
+        // printf("%f\n", PYHdata.accelY);
+        // printf("%f\n", PYHdata.accelZ);
+        // printf("%f\n", PYHdata.roll*180.0/PI);
+        // printf("%f\n", PYHdata.pitch*180.0/PI);
+        // printf("%f\n", PYHdata.yaw*180.0/PI);
+        // printf("##################\n");
+
+        vTaskDelay(10/portTICK_PERIOD_MS);
+    }
+}
+
+
+static void control_task(void *arg)
+{
+    //motor_out
+    MOTOR  MOUT= {410, 410, 410, 410};
+    u_int8_t flag_start_check = 1;
+    while (1)
+    {
+            //pid
+            
+        // if(integ_clr_flag[0])
+        // {
+        //     integ_clr_flag[0] = 0;
+        //     roll_pid.integ = 0;
+        // }
+        // if(integ_clr_flag[1])
+        // {
+        //     integ_clr_flag[1] = 0;
+        //     gyroX_pid.integ = 0;
+        // }
+        // if(integ_clr_flag[2])
+        // {
+        //     integ_clr_flag[2] = 0;
+        //     pitch_pid.integ = 0;
+        // }
+        // if(integ_clr_flag[3])
+        // {
+        //     integ_clr_flag[3] = 0;
+        //     gyroY_pid.integ = 0;
+        // }
+        // if(integ_clr_flag[4])
+        // {
+        //     integ_clr_flag[4] = 0;
+        //     gyroZ_pid.integ = 0;
+        // }
+        //roll
+        if(roll_pid.integ > 3)
+        {
+            roll_pid.integ = 3;
+        }
+        else if(roll_pid.integ <-3)
+        {
+            roll_pid.integ = -3;
+        }
+        //gyroX
+        if(gyroX_pid.integ > 3)
+        {
+            gyroX_pid.integ = 3;
+        }
+        else if(gyroX_pid.integ <-3)
+        {
+            gyroX_pid.integ = -3;
+        }
+        //pitch
+        if(pitch_pid.integ > 3)
+        {
+            pitch_pid.integ = 3;
+        }
+        else if(pitch_pid.integ <-3)
+        {
+            pitch_pid.integ = -3;
+        }
+        //gyroY
+        if(gyroY_pid.integ > 3)
+        {
+            gyroY_pid.integ = 3;
+        }
+        else if(gyroY_pid.integ <-3)
+        {
+            gyroY_pid.integ = -3;
+        }
+        //gyroZ
+        if(gyroZ_pid.integ > 5)
+        {
+            gyroZ_pid.integ = 5;
+        }
+        else if(gyroZ_pid.integ <-5)
+        {
+            gyroZ_pid.integ = -5;
+        }
+        //roll
+        roll_pid.last_error = roll_pid.error;
+        roll_pid.error = Desire_attitude.roll - PYHdata.roll;
+        roll_pid.integ += roll_pid.error;
+        roll_pid.diff = (roll_pid.error - roll_pid.last_error);
+        Desire_attitude.gyroX = pidP_list[0].kp*(roll_pid.error + pidP_list[0].ki*roll_pid.integ + pidP_list[0].kd*roll_pid.diff);
+        //printf("Desire_attitude.roll: %3.5f PYHdata.roll: %3.5f roll_pid.error: %3.5f\n", Desire_attitude.roll, PYHdata.roll, roll_pid.error);
+        //printf(" Desire_attitude.gyroX: %f\n",  Desire_attitude.gyroX);
+        //gyroX
+        
+        gyroX_pid.last_error = gyroX_pid.error;
+        gyroX_pid.error = Desire_attitude.gyroX - PYHdata.gyroX;
+        gyroX_pid.integ +=  gyroX_pid.error;
+        gyroX_pid.diff = gyroX_pid.error - gyroX_pid.last_error;
+        motor_delta.Droll = pidP_list[1].kp*(gyroX_pid.error + pidP_list[1].ki*gyroX_pid.integ + pidP_list[1].kd*gyroX_pid.diff);
+        //printf("motor_delta.Droll : %f ", motor_delta.Droll);
+        //pitch
+        
+        pitch_pid.last_error = pitch_pid.error;
+        pitch_pid.error = Desire_attitude.pitch - PYHdata.pitch;
+        pitch_pid.integ += pitch_pid.error;
+        pitch_pid.diff = (pitch_pid.error - pitch_pid.last_error);
+        Desire_attitude.gyroY = pidP_list[2].kp*(pitch_pid.error + pidP_list[2].ki*pitch_pid.integ + pidP_list[2].kd*pitch_pid.diff);
+        //gyroY
+        gyroY_pid.last_error = gyroY_pid.error;
+        gyroY_pid.error = Desire_attitude.gyroY - PYHdata.gyroY;
+        gyroY_pid.integ +=  gyroY_pid.error;
+        gyroY_pid.diff = gyroY_pid.error - gyroY_pid.last_error;
+        motor_delta.Dpitch = pidP_list[3].kp*(gyroY_pid.error + pidP_list[3].ki*gyroY_pid.integ + pidP_list[3].kd*gyroY_pid.diff);
+        //printf("motor_delta.Dpitch : %f\n", motor_delta.Dpitch);
+        //gyroZ
+
+        gyroZ_pid.last_error = gyroZ_pid.error;
+        gyroZ_pid.error = Desire_attitude.gyroZ - PYHdata.gyroZ;
+        gyroZ_pid.integ += gyroZ_pid.error;
+        gyroZ_pid.diff = gyroZ_pid.error - gyroZ_pid.last_error;
+        motor_delta.Dyaw = pidP_list[4].kp*(gyroZ_pid.error + pidP_list[4].ki*gyroZ_pid.integ + pidP_list[4].kd*gyroZ_pid.diff);
+        //printf("motor_delta.Dyaw : %f\n", motor_delta.Dyaw);
+        //throttle
+        //throttle_pid.last_error = throttle_pid.error;
+        //throttle_pid.error = Desire_attitude.throttle - PYHdata.accelZ;
+        //throttle_pid.integ += throttle_pid.error;
+        //throttle_pid.diff = throttle_pid.error - throttle_pid.last_error;
+        //motor_delta.throttle = pidP_list[5].kp*(throttle_pid.error + pidP_list[5].ki*throttle_pid.integ + pidP_list[5].kd*throttle_pid.diff);
+
+
+        //motor_out
+        if(RC_DATA.CH7 <= 400 && RC_CHECK == 0){
+            if(flag_start_check == 1 && RC_DATA.CH3 < 240)
+            {
+                flag_start_check = 0;
+            }
+            else if(flag_start_check == 1 && RC_DATA.CH3 >= 240)
+            {
+                printf("UNABLE TO DISARM, CHECK THE Throttle Channel\n");
+            }
+            else
+            {
+                Desire_attitude.roll = 1.0*(RC_DATA.CH1-1000)*PI/4/800;
+                Desire_attitude.pitch = 1.0*(RC_DATA.CH2-1000)*PI/4/800;
+                Desire_attitude.gyroZ = 1.0*(RC_DATA.CH4-1000)*PI/4/800;
+                Desire_attitude.throttle = (RC_DATA.CH3-200);
+                //printf("Desire_attitude.roll %f\n", Desire_attitude.roll);
+                motor_delta.throttle = Desire_attitude.throttle;
+                motor_delta.Droll = RC_DATA.CH1-1000;
+                motor_delta.Dpitch = RC_DATA.CH2-1000;
+                motor_delta.Dyaw = RC_DATA.CH4-1000;
+                MOUT.motor_1 = (motor_delta.KT*motor_delta.throttle - motor_delta.KR*motor_delta.Droll + motor_delta.KP*motor_delta.Dpitch + motor_delta.KY*motor_delta.Dyaw)*410*0.9/1600+451;
+                MOUT.motor_2 = (motor_delta.KT*motor_delta.throttle + motor_delta.KR*motor_delta.Droll - motor_delta.KP*motor_delta.Dpitch + motor_delta.KY*motor_delta.Dyaw)*410*0.9/1600+451;
+                MOUT.motor_3 = (motor_delta.KT*motor_delta.throttle + motor_delta.KR*motor_delta.Droll + motor_delta.KP*motor_delta.Dpitch - motor_delta.KY*motor_delta.Dyaw)*410*0.9/1600+451;
+                MOUT.motor_4 = (motor_delta.KT*motor_delta.throttle - motor_delta.KR*motor_delta.Droll - motor_delta.KP*motor_delta.Dpitch - motor_delta.KY*motor_delta.Dyaw)*410*0.9/1600+451;
+                if(MOUT.motor_1>820){
+                    MOUT.motor_1 = 820;
+                }
+                else if(MOUT.motor_1<451){
+                    MOUT.motor_1 = 451;
+                }
+                    if(MOUT.motor_2>820){
+                    MOUT.motor_2 = 820;
+                }
+                else if(MOUT.motor_2<451){
+                    MOUT.motor_2 = 451;
+                }
+                    if(MOUT.motor_3>820){
+                    MOUT.motor_3 = 820;
+                }
+                else if(MOUT.motor_3<451){
+                    MOUT.motor_3 = 451;
+                }
+                    if(MOUT.motor_4>820){
+                    MOUT.motor_4 = 820;
+                }
+                else if(MOUT.motor_4<451){
+                    MOUT.motor_4 = 451;
+                }
+                ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, MOUT.motor_1);
+                ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+                ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, MOUT.motor_2);
+                ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
+                ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2, MOUT.motor_3);
+                ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2);
+                ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_3, MOUT.motor_4);
+                ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_3);
+                //printf("%d %d %d %d\n", MOUT.motor_1, MOUT.motor_2, MOUT.motor_3, MOUT.motor_4);
+            }
+        }
+        else
+        {
+            flag_start_check = 1;
+            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 410);
+            ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, 410);
+            ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
+            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2, 410);
+            ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2);
+            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_3, 410);
+            ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_3);
+        }
+        // {
+        // int ms_clock = clock();
+        // FILE * fplog = fopen(log_path, "a");
+        // fprintf(fplog, "%d, %f, %f, %f,\n",ms_clock, PYHdata.roll, PYHdata.pitch, PYHdata.gyroZ);
+        // fclose(fplog);
+        // }
+        int ms_clock = clock();
+        printf("%d, %f, %f, %f,\n",ms_clock, PYHdata.roll, PYHdata.pitch, PYHdata.gyroZ);
+        vTaskDelay(10/portTICK_PERIOD_MS);
+    }
+}
+
+static void flight_task(void *arg)
+{
+    //rx
+    uint8_t data[64] = {0};
+    uint16_t byte_list[24] = {0};
+    int i;
+    //motor_out
+    MOTOR  MOUT= {410, 410, 410, 410};
+    u_int8_t flag_start_check = 1;
+    //imu
+    PYHdata = get_PHYSICS_Data();
+    while (1)
+    {
+        //rx
+        int length = 0;
+        ESP_ERROR_CHECK(uart_get_buffered_data_len(UART_NUM_2, (size_t*)&length));
+        length = uart_read_bytes(UART_NUM_2, data, length, 5);
+        for(i=0; i<128; i++)
+        {   
+            if(data[i]==0x0f)
+            {
+                break;
+            }
+        }
+        for(int j=0; j<24; j++)
+        {
+            byte_list[j] = data[i+j+1];
+        }
+
+        // out_cha[0] = ((byte_list[0]>>0 | (byte_list[1]<<8)) & 2047);
+        // out_cha[1] = ((byte_list[1]>>3 | (byte_list[2]<<5)) & 2047);
+        // out_cha[2] = ((byte_list[2]>>6 | (byte_list[3]<<2) | (byte_list[4]<<10)) & 2047);
+        // out_cha[3] = ((byte_list[4]>>1 | (byte_list[5]<<7)) & 2047);
+        // out_cha[4] = ((byte_list[5]>>4 | (byte_list[6]<<4)) & 2047);
+        // out_cha[5] = ((byte_list[6]>>7 | (byte_list[7]<<1) | (byte_list[8]<<9)) & 2047);
+        // out_cha[6] = ((byte_list[8]>>2 | (byte_list[9]<<6)) & 2047);
+        // out_cha[7] = ((byte_list[9]>>5 | (byte_list[10]<<3)) & 2047);
+        // out_cha[8] = ((byte_list[11]>>0 | (byte_list[12]<<8)) & 2047);
+        // out_cha[9] = ((byte_list[12]>>3 | (byte_list[13]<<5)) & 2047);
+        // out_cha[10] = ((byte_list[13]>>6 | (byte_list[14]<<2) | (byte_list[15]<<10)) & 2047);
+        // out_cha[11] = ((byte_list[15]>>1 | (byte_list[16]<<7)) & 2047);
+        // out_cha[12] = ((byte_list[16]>>4 | (byte_list[17]<<4)) & 2047);
+        // out_cha[13] = ((byte_list[17]>>7 | (byte_list[18]<<1) | (byte_list[19]<<9)) & 2047);
+        // out_cha[14] = ((byte_list[19]>>2 | (byte_list[20]<<6)) & 2047);
+        // out_cha[15] = ((byte_list[20]>>5 | (byte_list[21]<<3)) & 2047);
+        // printf("|");
+        // for(i=0; i<PWM_CHANNEL_NUM; i++)
+        // {
+        //     printf("CH%d %4d|", i+1, out_cha[i]);
+        // }
+        // printf("\n");
+
+        RC_DATA.CH1 = ((byte_list[0]>>0 | (byte_list[1]<<8)) & 2047);
+        RC_DATA.CH2 = ((byte_list[1]>>3 | (byte_list[2]<<5)) & 2047);
+        RC_DATA.CH3 = ((byte_list[2]>>6 | (byte_list[3]<<2) | (byte_list[4]<<10)) & 2047);
+        RC_DATA.CH4 = ((byte_list[4]>>1 | (byte_list[5]<<7)) & 2047);
+        RC_DATA.CH5 = ((byte_list[5]>>4 | (byte_list[6]<<4)) & 2047);
+        RC_DATA.CH6 = ((byte_list[6]>>7 | (byte_list[7]<<1) | (byte_list[8]<<9)) & 2047);
+        RC_DATA.CH7 = ((byte_list[8]>>2 | (byte_list[9]<<6)) & 2047);
+        RC_DATA.CH8 = ((byte_list[9]>>5 | (byte_list[10]<<3)) & 2047);
+        RC_CHECK = byte_list[22];
+        //printf("%d %d\n", (int)byte_list[22], (int)byte_list[23]);
+        // printf("CH1 %4d|", RC_DATA.CH1);
+        // printf("CH2 %4d|", RC_DATA.CH2);
+        // printf("CH3 %4d|", RC_DATA.CH3);
+        // printf("CH4 %4d|", RC_DATA.CH4);
+        // printf("\n");
+        
+        //get imu
+        PYHdata = get_PHYSICS_Data();
+            
+        // printf("##################\n");
+        // printf("%f\n", PYHdata.accelX);
+        // printf("%f\n", PYHdata.accelY);
+        // printf("%f\n", PYHdata.accelZ);
+        // printf("%f\n", PYHdata.roll*180.0/PI);
+        // printf("%f\n", PYHdata.pitch*180.0/PI);
+        // printf("%f\n", PYHdata.yaw*180.0/PI);
+        // printf("##################\n");
+        
+        
+        //pid
+            
+        // if(integ_clr_flag[0])
+        // {
+        //     integ_clr_flag[0] = 0;
+        //     roll_pid.integ = 0;
+        // }
+        // if(integ_clr_flag[1])
+        // {
+        //     integ_clr_flag[1] = 0;
+        //     gyroX_pid.integ = 0;
+        // }
+        // if(integ_clr_flag[2])
+        // {
+        //     integ_clr_flag[2] = 0;
+        //     pitch_pid.integ = 0;
+        // }
+        // if(integ_clr_flag[3])
+        // {
+        //     integ_clr_flag[3] = 0;
+        //     gyroY_pid.integ = 0;
+        // }
+        // if(integ_clr_flag[4])
+        // {
+        //     integ_clr_flag[4] = 0;
+        //     gyroZ_pid.integ = 0;
+        // }
+        //roll
+        if(roll_pid.integ > 3)
+        {
+            roll_pid.integ = 3;
+        }
+        else if(roll_pid.integ <-3)
+        {
+            roll_pid.integ = -3;
+        }
+        //gyroX
+        if(gyroX_pid.integ > 3)
+        {
+            gyroX_pid.integ = 3;
+        }
+        else if(gyroX_pid.integ <-3)
+        {
+            gyroX_pid.integ = -3;
+        }
+        //pitch
+        if(pitch_pid.integ > 3)
+        {
+            pitch_pid.integ = 3;
+        }
+        else if(pitch_pid.integ <-3)
+        {
+            pitch_pid.integ = -3;
+        }
+        //gyroY
+        if(gyroY_pid.integ > 3)
+        {
+            gyroY_pid.integ = 3;
+        }
+        else if(gyroY_pid.integ <-3)
+        {
+            gyroY_pid.integ = -3;
+        }
+        //gyroZ
+        if(gyroZ_pid.integ > 5)
+        {
+            gyroZ_pid.integ = 5;
+        }
+        else if(gyroZ_pid.integ <-5)
+        {
+            gyroZ_pid.integ = -5;
+        }
+        //roll
+        roll_pid.last_error = roll_pid.error;
+        roll_pid.error = Desire_attitude.roll - PYHdata.roll;
+        roll_pid.integ += roll_pid.error;
+        roll_pid.diff = (roll_pid.error - roll_pid.last_error);
+        Desire_attitude.gyroX = pidP_list[0].kp*(roll_pid.error + pidP_list[0].ki*roll_pid.integ + pidP_list[0].kd*roll_pid.diff);
+        //printf("Desire_attitude.roll: %3.5f PYHdata.roll: %3.5f roll_pid.error: %3.5f\n", Desire_attitude.roll, PYHdata.roll, roll_pid.error);
+        //printf(" Desire_attitude.gyroX: %f\n",  Desire_attitude.gyroX);
+        //gyroX
+        
+        gyroX_pid.last_error = gyroX_pid.error;
+        gyroX_pid.error = Desire_attitude.gyroX - PYHdata.gyroX;
+        gyroX_pid.integ +=  gyroX_pid.error;
+        gyroX_pid.diff = gyroX_pid.error - gyroX_pid.last_error;
+        motor_delta.Droll = pidP_list[1].kp*(gyroX_pid.error + pidP_list[1].ki*gyroX_pid.integ + pidP_list[1].kd*gyroX_pid.diff);
+        //printf("motor_delta.Droll : %f ", motor_delta.Droll);
+        //pitch
+        
+        pitch_pid.last_error = pitch_pid.error;
+        pitch_pid.error = Desire_attitude.pitch - PYHdata.pitch;
+        pitch_pid.integ += pitch_pid.error;
+        pitch_pid.diff = (pitch_pid.error - pitch_pid.last_error);
+        Desire_attitude.gyroY = pidP_list[2].kp*(pitch_pid.error + pidP_list[2].ki*pitch_pid.integ + pidP_list[2].kd*pitch_pid.diff);
+        //gyroY
+        gyroY_pid.last_error = gyroY_pid.error;
+        gyroY_pid.error = Desire_attitude.gyroY - PYHdata.gyroY;
+        gyroY_pid.integ +=  gyroY_pid.error;
+        gyroY_pid.diff = gyroY_pid.error - gyroY_pid.last_error;
+        motor_delta.Dpitch = pidP_list[3].kp*(gyroY_pid.error + pidP_list[3].ki*gyroY_pid.integ + pidP_list[3].kd*gyroY_pid.diff);
+        //printf("motor_delta.Dpitch : %f\n", motor_delta.Dpitch);
+        //gyroZ
+
+        gyroZ_pid.last_error = gyroZ_pid.error;
+        gyroZ_pid.error = Desire_attitude.gyroZ - PYHdata.gyroZ;
+        gyroZ_pid.integ += gyroZ_pid.error;
+        gyroZ_pid.diff = gyroZ_pid.error - gyroZ_pid.last_error;
+        motor_delta.Dyaw = pidP_list[4].kp*(gyroZ_pid.error + pidP_list[4].ki*gyroZ_pid.integ + pidP_list[4].kd*gyroZ_pid.diff);
+        //printf("motor_delta.Dyaw : %f\n", motor_delta.Dyaw);
+        //throttle
+        //throttle_pid.last_error = throttle_pid.error;
+        //throttle_pid.error = Desire_attitude.throttle - PYHdata.accelZ;
+        //throttle_pid.integ += throttle_pid.error;
+        //throttle_pid.diff = throttle_pid.error - throttle_pid.last_error;
+        //motor_delta.throttle = pidP_list[5].kp*(throttle_pid.error + pidP_list[5].ki*throttle_pid.integ + pidP_list[5].kd*throttle_pid.diff);
+
+
+        //motor_out
+        if(RC_DATA.CH7 <= 400 && RC_CHECK == 0){
+            if(flag_start_check == 1 && RC_DATA.CH3 < 240)
+            {
+                flag_start_check = 0;
+            }
+            else if(flag_start_check == 1 && RC_DATA.CH3 >= 240)
+            {
+                printf("UNABLE TO DISARM, CHECK THE Throttle Channel\n");
+            }
+            else
+            {
+                Desire_attitude.roll = 1.0*(RC_DATA.CH1-1000)*PI/4/800;
+                Desire_attitude.pitch = 1.0*(RC_DATA.CH2-1000)*PI/4/800;
+                Desire_attitude.gyroZ = 1.0*(RC_DATA.CH4-1000)*PI/4/800;
+                Desire_attitude.throttle = (RC_DATA.CH3-200);
+                //printf("Desire_attitude.roll %f\n", Desire_attitude.roll);
+                motor_delta.throttle = Desire_attitude.throttle;
+                motor_delta.Droll = RC_DATA.CH1-1000;
+                motor_delta.Dpitch = RC_DATA.CH2-1000;
+                motor_delta.Dyaw = RC_DATA.CH4-1000;
+                MOUT.motor_1 = (motor_delta.KT*motor_delta.throttle - motor_delta.KR*motor_delta.Droll + motor_delta.KP*motor_delta.Dpitch + motor_delta.KY*motor_delta.Dyaw)*410*0.9/1600+451;
+                MOUT.motor_2 = (motor_delta.KT*motor_delta.throttle + motor_delta.KR*motor_delta.Droll - motor_delta.KP*motor_delta.Dpitch + motor_delta.KY*motor_delta.Dyaw)*410*0.9/1600+451;
+                MOUT.motor_3 = (motor_delta.KT*motor_delta.throttle + motor_delta.KR*motor_delta.Droll + motor_delta.KP*motor_delta.Dpitch - motor_delta.KY*motor_delta.Dyaw)*410*0.9/1600+451;
+                MOUT.motor_4 = (motor_delta.KT*motor_delta.throttle - motor_delta.KR*motor_delta.Droll - motor_delta.KP*motor_delta.Dpitch - motor_delta.KY*motor_delta.Dyaw)*410*0.9/1600+451;
+                if(MOUT.motor_1>820){
+                    MOUT.motor_1 = 820;
+                }
+                else if(MOUT.motor_1<451){
+                    MOUT.motor_1 = 451;
+                }
+                    if(MOUT.motor_2>820){
+                    MOUT.motor_2 = 820;
+                }
+                else if(MOUT.motor_2<451){
+                    MOUT.motor_2 = 451;
+                }
+                    if(MOUT.motor_3>820){
+                    MOUT.motor_3 = 820;
+                }
+                else if(MOUT.motor_3<451){
+                    MOUT.motor_3 = 451;
+                }
+                    if(MOUT.motor_4>820){
+                    MOUT.motor_4 = 820;
+                }
+                else if(MOUT.motor_4<451){
+                    MOUT.motor_4 = 451;
+                }
+                ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, MOUT.motor_1);
+                ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+                ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, MOUT.motor_2);
+                ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
+                ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2, MOUT.motor_3);
+                ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2);
+                ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_3, MOUT.motor_4);
+                ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_3);
+                //printf("%d %d %d %d\n", MOUT.motor_1, MOUT.motor_2, MOUT.motor_3, MOUT.motor_4);
+            }
+        }
+        else
+        {
+            flag_start_check = 1;
+            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 410);
+            ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, 410);
+            ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
+            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2, 410);
+            ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2);
+            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_3, 410);
+            ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_3);
+        }
+        // {
+        // int ms_clock = clock();
+        // FILE * fplog = fopen(log_path, "a");
+        // fprintf(fplog, "%d, %f, %f, %f,\n",ms_clock, PYHdata.roll, PYHdata.pitch, PYHdata.gyroZ);
+        // fclose(fplog);
+        // }
+        int ms_clock = clock();
+        printf("%d, %f, %f, %f,\n",ms_clock, PYHdata.roll, PYHdata.pitch, PYHdata.gyroZ);
+        vTaskDelay(10/portTICK_PERIOD_MS);
+    }
+}

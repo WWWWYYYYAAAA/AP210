@@ -385,7 +385,7 @@ int8_t FAT_regular_init()
         ESP_LOGE(TAG, "Failed to mount FATFS (%s)", esp_err_to_name(err));
         return false;
     }
-    vTaskDelay(500/portTICK_PERIOD_MS);
+    vTaskDelay(1000/portTICK_PERIOD_MS);
     // DIR *dh = opendir("/data");
     // if (!dh) {
     //     if (errno == ENOENT) {
@@ -409,6 +409,7 @@ int8_t FAT_regular_init()
 void FAT_unmount()
 {
     esp_vfs_fat_spiflash_unmount_rw_wl("/data", s_wl_handle);
+    vTaskDelay(500/portTICK_PERIOD_MS);
 }
 
 int8_t FAT_format_init()
