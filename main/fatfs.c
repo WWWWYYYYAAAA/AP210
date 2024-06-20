@@ -103,10 +103,17 @@ static char const *string_desc_arr[] = {
 // };
 
 // mount the partition and show all the files in BASE_PATH
-static void _mount(void)
+static void _mount(char *BasePath)
 {
     //ESP_LOGI(TAG, "Mount storage...");
-    ESP_ERROR_CHECK(tinyusb_msc_storage_mount(BASE_PATH));
+    if(BasePath == NULL)
+    {
+        ESP_ERROR_CHECK(tinyusb_msc_storage_mount(BASE_PATH));
+    }
+    else
+    {
+        ESP_ERROR_CHECK(tinyusb_msc_storage_mount(BasePath));
+    }
     // List all the files in this directory
     //ESP_LOGI(TAG, "\nls command output:");
     // struct dirent *d;
@@ -212,7 +219,7 @@ static void _mount(void)
 //     return 0;
 // }
 
-#ifdef CONFIG_EXAMPLE_STORAGE_MEDIA_SPIFLASH
+// #ifdef CONFIG_EXAMPLE_STORAGE_MEDIA_SPIFLASH
 static esp_err_t storage_init_spiflash(wl_handle_t *wl_handle)
 {
     ESP_LOGI(TAG, "Initializing wear levelling");
@@ -225,7 +232,7 @@ static esp_err_t storage_init_spiflash(wl_handle_t *wl_handle)
 
     return wl_mount(data_partition, wl_handle);
 }
-#else  // CONFIG_EXAMPLE_STORAGE_MEDIA_SPIFLASH
+// #else  // CONFIG_EXAMPLE_STORAGE_MEDIA_SPIFLASH
 static esp_err_t storage_init_sdmmc(sdmmc_card_t **card)
 {
     esp_err_t ret = ESP_OK;
@@ -244,24 +251,24 @@ static esp_err_t storage_init_sdmmc(sdmmc_card_t **card)
     sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
 
     // For SD Card, set bus width to use
-#ifdef CONFIG_EXAMPLE_SDMMC_BUS_WIDTH_4
+// #ifdef CONFIG_EXAMPLE_SDMMC_BUS_WIDTH_4
     slot_config.width = 4;
-#else
-    slot_config.width = 1;
-#endif  // CONFIG_EXAMPLE_SDMMC_BUS_WIDTH_4
+// #else
+    // slot_config.width = 1;
+// #endif  // CONFIG_EXAMPLE_SDMMC_BUS_WIDTH_4
 
     // On chips where the GPIOs used for SD card can be configured, set the user defined values
-#ifdef CONFIG_SOC_SDMMC_USE_GPIO_MATRIX
-    slot_config.clk = CONFIG_EXAMPLE_PIN_CLK;
-    slot_config.cmd = CONFIG_EXAMPLE_PIN_CMD;
-    slot_config.d0 = CONFIG_EXAMPLE_PIN_D0;
-#ifdef CONFIG_EXAMPLE_SDMMC_BUS_WIDTH_4
-    slot_config.d1 = CONFIG_EXAMPLE_PIN_D1;
-    slot_config.d2 = CONFIG_EXAMPLE_PIN_D2;
-    slot_config.d3 = CONFIG_EXAMPLE_PIN_D3;
-#endif  // CONFIG_EXAMPLE_SDMMC_BUS_WIDTH_4
+// #ifdef CONFIG_SOC_SDMMC_USE_GPIO_MATRIX
+    slot_config.clk = 40;
+    slot_config.cmd = 41;
+    slot_config.d0 = 39;
+// #ifdef CONFIG_EXAMPLE_SDMMC_BUS_WIDTH_4
+    slot_config.d1 = 17;
+    slot_config.d2 = 16;
+    slot_config.d3 = 42;
+// #endif  // CONFIG_EXAMPLE_SDMMC_BUS_WIDTH_4
 
-#endif  // CONFIG_SOC_SDMMC_USE_GPIO_MATRIX
+// #endif  // CONFIG_SOC_SDMMC_USE_GPIO_MATRIX
 
     // Enable internal pullups on enabled pins. The internal pullups
     // are insufficient however, please make sure 10k external pullups are
@@ -303,13 +310,13 @@ clean:
     }
     return ret;
 }
-#endif
+// #endif
 
 void init_myfatfs()
 {
     ESP_LOGI(TAG, "Initializing storage...");
 
-#ifdef CONFIG_EXAMPLE_STORAGE_MEDIA_SPIFLASH
+// #ifdef CONFIG_EXAMPLE_STORAGE_MEDIA_SPIFLASH
     static wl_handle_t wl_handle = WL_INVALID_HANDLE;
     ESP_ERROR_CHECK(storage_init_spiflash(&wl_handle));
 
@@ -317,18 +324,18 @@ void init_myfatfs()
         .wl_handle = wl_handle
     };
     ESP_ERROR_CHECK(tinyusb_msc_storage_init_spiflash(&config_spi));
-#else // CONFIG_EXAMPLE_STORAGE_MEDIA_SPIFLASH
-    static sdmmc_card_t *card = NULL;
-    ESP_ERROR_CHECK(storage_init_sdmmc(&card));
+            // // #else // CONFIG_EXAMPLE_STORAGE_MEDIA_SPIFLASH
+            //     static sdmmc_card_t *card = NULL;
+            //     ESP_ERROR_CHECK(storage_init_sdmmc(&card));
 
-    const tinyusb_msc_sdmmc_config_t config_sdmmc = {
-        .card = card
-    };
-    ESP_ERROR_CHECK(tinyusb_msc_storage_init_sdmmc(&config_sdmmc));
-#endif  // CONFIG_EXAMPLE_STORAGE_MEDIA_SPIFLASH
+            //     const tinyusb_msc_sdmmc_config_t config_sdmmc = {
+            //         .card = card
+            //     };
+            //     ESP_ERROR_CHECK(tinyusb_msc_storage_init_sdmmc(&config_sdmmc));
+// #endif  // CONFIG_EXAMPLE_STORAGE_MEDIA_SPIFLASH
 
     //mounted in the app by default
-    _mount();
+    _mount(NULL);
 
     ESP_LOGI(TAG, "USB MSC initialization");
     const tinyusb_config_t tusb_cfg = {
@@ -357,7 +364,57 @@ void init_myfatfs()
     // ESP_ERROR_CHECK(esp_console_start_repl(repl));
 }
 
+void init_myfatfs_sdmmc()
+{
+     ESP_LOGI(TAG, "Initializing storage...");
 
+// #ifdef CONFIG_EXAMPLE_STORAGE_MEDIA_SPIFLASH
+    // static wl_handle_t wl_handle = WL_INVALID_HANDLE;
+    // ESP_ERROR_CHECK(storage_init_spiflash(&wl_handle));
+
+    // const tinyusb_msc_spiflash_config_t config_spi = {
+    //     .wl_handle = wl_handle
+    // };
+    // ESP_ERROR_CHECK(tinyusb_msc_storage_init_spiflash(&config_spi));
+            // // #else // CONFIG_EXAMPLE_STORAGE_MEDIA_SPIFLASH
+    static sdmmc_card_t *card = NULL;
+    ESP_ERROR_CHECK(storage_init_sdmmc(&card));
+
+    const tinyusb_msc_sdmmc_config_t config_sdmmc = {
+        .card = card
+    };
+    ESP_ERROR_CHECK(tinyusb_msc_storage_init_sdmmc(&config_sdmmc));
+// #endif  // CONFIG_EXAMPLE_STORAGE_MEDIA_SPIFLASH
+
+    //mounted in the app by default
+    _mount(NULL);
+
+    ESP_LOGI(TAG, "USB MSC initialization");
+    const tinyusb_config_t tusb_cfg = {
+        .device_descriptor = &descriptor_config,
+        .string_descriptor = string_desc_arr,
+        .string_descriptor_count = sizeof(string_desc_arr) / sizeof(string_desc_arr[0]),
+        .external_phy = false,
+        .configuration_descriptor = desc_configuration,
+    };
+    ESP_ERROR_CHECK(tinyusb_driver_install(&tusb_cfg));
+    ESP_LOGI(TAG, "USB MSC initialization DONE");
+
+    // esp_console_repl_t *repl = NULL;
+    // esp_console_repl_config_t repl_config = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
+    // /* Prompt to be printed before each line.
+    //  * This can be customized, made dynamic, etc.
+    //  */
+    // repl_config.prompt = PROMPT_STR ">";
+    // repl_config.max_cmdline_length = 64;
+    // esp_console_register_help_command();
+    // esp_console_dev_uart_config_t hw_config = ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
+    // ESP_ERROR_CHECK(esp_console_new_repl_uart(&hw_config, &repl_config, &repl));
+    // for (int count = 0; count < sizeof(cmds) / sizeof(esp_console_cmd_t); count++) {
+    //     ESP_ERROR_CHECK( esp_console_cmd_register(&cmds[count]) );
+    // }
+    // ESP_ERROR_CHECK(esp_console_start_repl(repl));
+}
 
 int8_t IsExist(char *filename)
 {

@@ -472,11 +472,16 @@ uint8_t mode_switch()
     {
         init_myfatfs();
     }
+    else if(!sw1 && sw2)
+    {
+        init_myfatfs_sdmmc();
+    }
     else if(sw1 && sw2)
     {
         FAT_format_init();
         FAT_unmount();
-        //init_myfatfs();
+        vTaskDelay(1000/portTICK_PERIOD_MS);
+        init_myfatfs();
     }
     return 0;
 }

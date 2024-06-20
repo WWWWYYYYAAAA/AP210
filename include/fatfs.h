@@ -16,15 +16,16 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#ifdef CONFIG_EXAMPLE_STORAGE_MEDIA_SDMMCCARD
+// #ifdef CONFIG_EXAMPLE_STORAGE_MEDIA_SDMMCCARD
 #include "diskio_impl.h"
 #include "diskio_sdmmc.h"
 
-#endif
+// #endif
 
 static wl_handle_t s_wl_handle = WL_INVALID_HANDLE;
 
 void init_myfatfs();
+void init_myfatfs_sdmmc();
 int8_t IsExist(char *filename);
 int8_t FAT_regular_init();
 void FAT_unmount();
