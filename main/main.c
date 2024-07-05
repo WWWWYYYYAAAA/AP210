@@ -440,7 +440,7 @@ void HW_init()
     //caliberate the mpu6050
     //MPU_OFFSET();
     gpio_config_t ioConfig = {
-		.pin_bit_mask = (1ull << 1)|(1ull << 2),
+		.pin_bit_mask = (1ull << 46),
 		.mode = GPIO_MODE_INPUT,
         .pull_up_en = GPIO_PULLUP_ENABLE,
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
@@ -451,9 +451,8 @@ void HW_init()
 
 uint8_t mode_switch()
 {
-    sw1 = gpio_get_level(2);
-    sw2 = gpio_get_level(1);
-    if(!sw1 && !sw2)
+    sw1 = gpio_get_level(46);
+    if(!sw1)
     {
         FAT_regular_init();
         init_file();
@@ -468,19 +467,8 @@ uint8_t mode_switch()
         xTaskCreate(get_data_task, "get_data_task", 1024*16,  NULL, 1, NULL);
         xTaskCreate(control_task, "control_task", 1024*16,  NULL, 1, NULL);
     }
-    else if(sw1 && !sw2)
+    else if(sw1)
     {
-        init_myfatfs();
-    }
-    else if(!sw1 && sw2)
-    {
-        init_myfatfs_sdmmc();
-    }
-    else if(sw1 && sw2)
-    {
-        FAT_format_init();
-        FAT_unmount();
-        vTaskDelay(1000/portTICK_PERIOD_MS);
         init_myfatfs();
     }
     return 0;
