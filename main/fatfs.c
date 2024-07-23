@@ -312,6 +312,52 @@ clean:
 }
 // #endif
 
+static esp_err_t mount_sdmmc(sdmmc_card_t **card, const char *base_path)
+{
+    esp_err_t ret = ESP_OK;
+    sdmmc_card_t *sd_card;
+
+    ESP_LOGI(TAG, "Initializing SDCard");
+    sdmmc_host_t host = SDMMC_HOST_DEFAULT();
+    sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
+    slot_config.width = 4;
+
+    slot_config.clk = 40;
+    slot_config.cmd = 41;
+    slot_config.d0 = 39;
+    slot_config.d1 = 17;
+    slot_config.d2 = 16;
+    slot_config.d3 = 42;
+
+    slot_config.flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP;
+
+    // sd_card = (sdmmc_card_t *)malloc(sizeof(sdmmc_card_t));
+
+    const esp_vfs_fat_sdmmc_mount_config_t mount_config = {
+           .format_if_mount_failed = true,
+            .max_files = 5,
+            .allocation_unit_size = 16 * 1024
+    };
+    ret = esp_vfs_fat_sdmmc_mount(base_path, &host, &slot_config, &mount_config, &sd_card);
+
+    if (ret != ESP_OK) {
+        if (ret == ESP_FAIL) {
+            ESP_LOGE(TAG, "Failed to mount filesystem. "
+                "If you want the card to be formatted, set the EXAMPLE_FORMAT_IF_MOUNT_FAILED menuconfig option.");
+        } else {
+            ESP_LOGE(TAG, "Failed to initialize the card (%s). "
+                "Make sure SD card lines have pull-up resistors in place.", esp_err_to_name(ret));
+        }
+        return -1;
+    }
+
+    // Card has been initialized, print its properties
+    sdmmc_card_print_info(stdout, sd_card);
+    // *card = sd_card;
+
+    return ESP_OK;
+}
+
 void init_myfatfs()
 {
     ESP_LOGI(TAG, "Initializing storage...");
@@ -432,16 +478,18 @@ int8_t IsExist(char *filename)
 
 int8_t FAT_regular_init()
 {
-    const esp_vfs_fat_mount_config_t mount_config = {
-            .max_files = 4,
-            .format_if_mount_failed = true,
-            .allocation_unit_size = CONFIG_WL_SECTOR_SIZE
-    };
-    esp_err_t err = esp_vfs_fat_spiflash_mount_rw_wl("/data", "storage", &mount_config, &s_wl_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to mount FATFS (%s)", esp_err_to_name(err));
-        return false;
-    }
+    // const esp_vfs_fat_mount_config_t mount_config = {
+    //         .max_files = 4,
+    //         .format_if_mount_failed = true,
+    //         .allocation_unit_size = CONFIG_WL_SECTOR_SIZE
+    // };
+    // esp_err_t err = esp_vfs_fat_spiflash_mount_rw_wl("/data", "storage", &mount_config, &s_wl_handle);
+    static sdmmc_card_t *card = NULL;
+    ESP_ERROR_CHECK(mount_sdmmc(&card, "/data"));
+    // if (err != ESP_OK) {
+    //     ESP_LOGE(TAG, "Failed to mount FATFS (%s)", esp_err_to_name(err));
+    //     return false;
+    // }
     vTaskDelay(1000/portTICK_PERIOD_MS);
     // DIR *dh = opendir("/data");
     // if (!dh) {
