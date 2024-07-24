@@ -25,7 +25,7 @@
 
 
 SBUS RC_DATA = {0};
-struct AccelGyroData_int32_t OFFSET_RAW = {410, 274, 1305, -309, -73, -3};
+struct AccelGyroData_int32_t OFFSET_RAW = {-39, -167, 190,-499 ,139 ,90};
 uint8_t RC_CHECK = 63;
 float G = 9.80665;
 float PI = 3.1415926535;
@@ -381,7 +381,7 @@ void HW_init()
     uint8_t ACCEL_CONFIG[] = {28,0b00000000};
     
     uint8_t MST_EN[] = {106, 0x00};
-    uint8_t BYPASS_EN[] = {0x37, 0x01};
+    uint8_t BYPASS_EN[] = {0x37, 0x02};
 //     uint8_t I2C_MST_CTRL[] = {36, 0b11011101};
 //     uint8_t I2C_SLV0_ADDR[] = {0x25, 0x80|0x1E};
 //     uint8_t I2C_SLV0_REG[] = {38, 0x03};
@@ -394,7 +394,11 @@ void HW_init()
     write_register(MPU_ADDR, ACCEL_CONFIG);
     //hmc5883
     // write_register(MPU_ADDR, MST_EN);
+    printf("MST_EN %d\n", read_register(MPU_ADDR, 106));
+    // write_register(MPU_ADDR, MST_EN);
     write_register(MPU_ADDR, BYPASS_EN);
+    printf("BYPASS_EN %d\n", read_register(MPU_ADDR, 0x37));
+    printf("MST_EN %d\n", read_register(MPU_ADDR, 106));
     // write_register(MPU_ADDR, I2C_MST_CTRL);
     // write_register(MPU_ADDR, I2C_SLV0_ADDR);
     // write_register(MPU_ADDR, I2C_SLV0_REG);
@@ -402,7 +406,8 @@ void HW_init()
     uint8_t a_config = {0, 0X58};
     uint8_t b_config = {1, 0X40};
     uint8_t mode_config = {2, 0X00};
-    write_register(0x1d, a_config);
+    printf("a_config %d\n", read_register(0x3D, 4));
+    write_register(0x1E, a_config);
     // write_register(HMC5883_ADDR, b_config);
     // write_register(HMC5883_ADDR, mode_config);
     // uint8_t HMC_LIST_6050[][2] = {{0x6A, 0b00000000},
@@ -444,7 +449,7 @@ void HW_init()
     // init BMP180
     //不想配了，反正不准
     //caliberate the mpu6050
-    //MPU_OFFSET();
+    // MPU_OFFSET();
     gpio_config_t ioConfig = {
 		.pin_bit_mask = (1ull << 1)|(1ull << 2),
 		.mode = GPIO_MODE_INPUT,
@@ -453,6 +458,7 @@ void HW_init()
         .intr_type = GPIO_INTR_DISABLE
 	};
     gpio_config(&ioConfig);
+    // MPU_OFFSET();
 }
 
 uint8_t mode_switch()
@@ -1019,9 +1025,10 @@ static void control_task(void *arg)
         // fclose(fplog);
         // }
         int ms_clock = clock();
-        // // printf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
         // printf("%d, %f--%f, %f--%f, %f--%f\n",ms_clock, PYHdata.gyroX, Desire_attitude.roll, PYHdata.gyroY, Desire_attitude.pitch, PYHdata.gyroZ, Desire_attitude.gyroZ);
         // vTaskDelay(10/portTICK_PERIOD_MS);
+        printf("%d, %f, %f, %f, %f, %f, %f\n",ms_clock, PYHdata.accelX, PYHdata.accelY, PYHdata.accelZ, PYHdata.gyroX, PYHdata.gyroY, PYHdata.gyroZ);
+        vTaskDelay(10/portTICK_PERIOD_MS);
     }
 }
 
@@ -1302,8 +1309,8 @@ static void flight_task(void *arg)
         // fprintf(fplog, "%d, %f, %f, %f,\n",ms_clock, PYHdata.roll, PYHdata.pitch, PYHdata.gyroZ);
         // fclose(fplog);
         // }
-        int ms_clock = clock();
-        printf("%d, %f, %f, %f,\n",ms_clock, PYHdata.roll, PYHdata.pitch, PYHdata.gyroZ);
+        // int ms_clock = clock();
+        // printf("%d, %f, %f, %f, %f, %f, %f\n",ms_clock, PYHdata.accelX, PYHdata.accelX, PYHdata.accelZ, PYHdata.gyroX, PYHdata.gyroY, PYHdata.gyroZ);
         vTaskDelay(10/portTICK_PERIOD_MS);
     }
 }

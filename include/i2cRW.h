@@ -6,6 +6,7 @@
 
 void write_register(uint8_t address, uint8_t *data);
 uint8_t read_register(uint8_t address, uint8_t reg);
+uint8_t read_register_2(uint8_t address, uint8_t reg);
 // void read_register_stream();
 
 #endif

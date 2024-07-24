@@ -17,6 +17,16 @@ uint8_t read_register(uint8_t address, uint8_t reg){
     return data;
 }
 
+void write_register_2(uint8_t address, uint8_t *data){
+    i2c_cmd_handle_t cmd = i2c_cmd_link_create();
+    i2c_master_start(cmd);
+    i2c_master_write_byte(cmd, address<<1|0, true);
+    i2c_master_write(cmd, data, sizeof(data), true);
+    i2c_master_stop(cmd);
+    i2c_master_cmd_begin(0, cmd, 1000 / portTICK_PERIOD_MS);
+    i2c_cmd_link_delete(cmd);
+}
+
 // void read_register_stream()
 // {
 //      uint8_t dataHMC[6] = {0};
