@@ -95,7 +95,7 @@ struct AccelGyroData_int32_t get_calibration_data()
     AccelGyroData.gyroZ = (int)(int16_t)(read_register(MPU_ADDR, 71) << 8) + read_register(MPU_ADDR, 72) - OFFSET_RAW.gyroZ;
     
     // printf("accelX %d, accelY %d, accelZ %d ", AccelGyroData.accelX, AccelGyroData.accelY, AccelGyroData.accelZ);
-    // printf("8553 %d %d\n", read_register(0x3d, 0x3), read_register(0x3d, 0x4));
+    // printf("HMC8553l %d\n", (int)(int16_t)((read_register(MPU_ADDR, 0x49)<<8)+read_register(MPU_ADDR, 0x4A)));
     return AccelGyroData;
 }
 

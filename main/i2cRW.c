@@ -20,10 +20,15 @@ uint8_t read_register(uint8_t address, uint8_t reg){
 void write_register_2(uint8_t address, uint8_t *data){
     i2c_cmd_handle_t cmd = i2c_cmd_link_create();
     i2c_master_start(cmd);
+    printf("m1\n");
     i2c_master_write_byte(cmd, address<<1|0, true);
-    i2c_master_write(cmd, data, sizeof(data), true);
+    printf("m2\n");
+    // i2c_master_write_byte(cmd, data[0], false);
+    // i2c_master_write_byte(cmd, data[1], false);
     i2c_master_stop(cmd);
+    printf("m3\n");
     i2c_master_cmd_begin(0, cmd, 1000 / portTICK_PERIOD_MS);
+    printf("m4\n");
     i2c_cmd_link_delete(cmd);
 }
 
