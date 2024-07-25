@@ -34,24 +34,23 @@ float gyro_scale=7509.872412338726;
 int YAW_CAL = 0;
 struct AccelGyroPHYSICSData PYHdata;
 
-Attitude Last_attitude = {0};
-Attitude Now_attitude = {0};
-Attitude Desire_attitude = {0};
-PID_Param pidP_list[6] = {{10, 1, 1},  //roll
-                          {10, 1, 2},  //gx
-                          {10, 1, 1},  //pitch
-                          {10, 1, 2},  //gy
-                          {8, 1, 1},   //gyroZ
-                          {0.5, 0, 1}};  //throttle
+static Attitude Last_attitude = {0};
+static Attitude Now_attitude = {0};
+static Attitude Desire_attitude = {0};
+static PID_Param pidP_list[6] = {{1.2, 0, 0.01},  //roll
+                          {0.01, 0.003, 0.05},  //gx
+                          {1.2, 0, 0.01},  //pitch
+                          {0.01, 0.003, 0.05},  //gy
+                          {0.02, 0, 0.03},   //gyroZ
+                          {0.5, 0, 0}};  //throttle  --x
 int integ_clr_flag[6] = {0};
-
 PID_Element roll_pid = {0};
 PID_Element gyroX_pid = {0};
 PID_Element pitch_pid = {0};
 PID_Element gyroY_pid = {0};
 PID_Element gyroZ_pid = {0};
 PID_Element throttle_pid = {0};
-DMotor motor_delta = {0, 0, 0, 0, 1, 0.2, 0.2, 0.2};   //ROLL PITCH YAW
+DMotor motor_delta = {0, 0, 0, 0, 1, 1, 1, 1};   //ROLL PITCH YAW
 
 float hover_percentage = 0.3;
 uint8_t sw1=0, sw2=0;
@@ -341,9 +340,9 @@ void HW_init()
     uint8_t I2C_SLV0_CTRL[] = {0x27, 0b10000110};
     uint8_t DELAY_CTRL[] = {0x67, 0b00000001};
     //hmc5883l
-    write_register(MPU_ADDR, MST_EN1);
-    vTaskDelay(100/portTICK_PERIOD_MS);
-    write_register(MPU_ADDR, BYPASS_EN1);
+    // write_register(MPU_ADDR, MST_EN1);
+    // vTaskDelay(100/portTICK_PERIOD_MS);
+    // write_register(MPU_ADDR, BYPASS_EN1);
     // printf("confa %d\n", read_register(0x1E, 0x00));
     // printf("confb %d\n", read_register(0x1E, 0x01));
     // printf("confc %d\n", read_register(0x1E, 0x04));
@@ -365,14 +364,13 @@ void HW_init()
 
     write_register(MPU_ADDR, I2C_SLV0_ADDR_W);
     vTaskDelay(5/portTICK_PERIOD_MS);
-    write_register(MPU_ADDR, confa);
-    vTaskDelay(10/portTICK_PERIOD_MS);
-    write_register(MPU_ADDR, confb);
-    vTaskDelay(10/portTICK_PERIOD_MS);
-    write_register(MPU_ADDR, confc);
-    vTaskDelay(10/portTICK_PERIOD_MS);
-    //printf("trans %d\n", read_register(MPU_ADDR, 99));
-
+    // write_register(MPU_ADDR, confa);
+    // vTaskDelay(10/portTICK_PERIOD_MS);
+    // write_register(MPU_ADDR, confb);
+    // vTaskDelay(10/portTICK_PERIOD_MS);
+    // write_register(MPU_ADDR, confc);
+    // vTaskDelay(10/portTICK_PERIOD_MS);
+    
     write_register(MPU_ADDR, I2C_SLV0_ADDR);
     write_register(MPU_ADDR, I2C_SLV0_REG);
     write_register(MPU_ADDR, I2C_SLV0_CTRL);
@@ -389,35 +387,7 @@ void HW_init()
     // printf("BYPASS_EN %d\n", read_register(MPU_ADDR, 0x37));
     // printf("MST_EN %d\n", read_register(MPU_ADDR, 106));
 
-   
 
-    // write_register(HMC5883_ADDR, b_config);
-    // write_register(HMC5883_ADDR, mode_config);
-    // uint8_t HMC_LIST_6050[][2] = {{0x6A, 0b00000000},
-    //                         {0x37, 0x02},//hmcinit
-    //                         {0x37, 0x00},//2
-    //                         {0x6A, 0x20},
-    //                         {0x25, HMC5883_ADDR|0x80},
-    //                         {0x26, 0x03},
-    //                         {0x27, 6|0x80},
-    //                         {0x67, 1}
-    //                         };
-    // uint8_t HMC_LIST_5883[][2] = {{0x00, 0x18},
-    //                             {0x01, 0x60},
-    //                             {0x02, 0x00}
-    //                             };
-    // for(int i = 0; i<2; i++)
-    // {
-    //     write_register(MPU_ADDR, HMC_LIST_6050[i]);
-    // }
-    // for(int i = 0; i<3; i++)
-    // {
-    //     write_register(HMC5883_ADDR, HMC_LIST_5883[i]);
-    // }
-    // for(int i = 2; i<8; i++)
-    // {
-    //     write_register(MPU_ADDR, HMC_LIST_6050[i]);
-    // }
 
     accel_scale=16384; //+-2G
     gyro_scale=7509.872412338726; //+-250 /rad
@@ -529,6 +499,22 @@ static void get_data_task(void *arg)
     return;
 }
 
+float platform(int data_raw, int mid, int width, float kout)
+{
+    if(data_raw - mid + width < 0)
+    {
+        return kout*(data_raw - mid + width);
+    }
+    else if(data_raw - mid - width > 0)
+    {
+        return kout*(data_raw - mid - width);
+    }
+    else
+    {
+        return 0;
+    }
+    
+}
 
 static void control_task(void *arg)
 {
@@ -536,6 +522,7 @@ static void control_task(void *arg)
     MOTOR  MOUT= {410, 410, 410, 410};
     u_int8_t flag_start_check = 1;
     PYHdata = get_PHYSICS_Data();
+    float motor_percent[4];
     while (1)
     {
         PYHdata = get_PHYSICS_Data();
@@ -547,21 +534,25 @@ static void control_task(void *arg)
             }
             else if(flag_start_check == 1 && RC_DATA.CH3 >= 240)
             {
-                // printf("UNABLE TO DISARM, CHECK THE Throttle Channel\n");
+                printf("UNABLE TO DISARM, CHECK THE Throttle Channel\n");
             }
             else
             {
-                Desire_attitude.roll = 1.0*(RC_DATA.CH1-1000)*PI/4/800;
-                Desire_attitude.pitch = 1.0*(RC_DATA.CH2-1000)*PI/4/800;
-                Desire_attitude.gyroZ = 1.0*(RC_DATA.CH4-1000)*PI/4/800;
-                Desire_attitude.throttle = (RC_DATA.CH3-200);
-                //roll
+                Desire_attitude.roll = platform(RC_DATA.CH1, 1000, 30, PI/3200);
+                Desire_attitude.pitch = platform(RC_DATA.CH2, 1000, 30, PI/3200);
+                Desire_attitude.gyroZ = platform(RC_DATA.CH4, 1000, 30, PI/1600);
+                Desire_attitude.throttle = 0.9 * (RC_DATA.CH3-200)/1600 + 0.1;
+                //rolls
                 roll_pid.last_error = roll_pid.error;
                 roll_pid.error = Desire_attitude.roll - PYHdata.roll;
                 roll_pid.integ += roll_pid.error;
                 if(roll_pid.error > 0.2 || roll_pid.error < -0.2)
                 {
                     roll_pid.integ = 0;
+                }
+                if(roll_pid.integ>2)
+                {
+                    gyroZ_pid.integ = 2;
                 }
                 roll_pid.diff = (roll_pid.error - roll_pid.last_error);
                 Desire_attitude.gyroX = pidP_list[0].kp*(roll_pid.error + pidP_list[0].ki*roll_pid.integ + pidP_list[0].kd*roll_pid.diff);
@@ -571,11 +562,7 @@ static void control_task(void *arg)
                 
                 gyroX_pid.last_error = gyroX_pid.error;
                 gyroX_pid.error = Desire_attitude.gyroX - PYHdata.gyroX;
-                gyroX_pid.integ +=  gyroX_pid.error;
-                if(gyroX_pid.error > 0.5 || gyroX_pid.error < -0.5)
-                {
-                    gyroX_pid.integ = 0;
-                }
+                gyroX_pid.integ = roll_pid.error;  
                 gyroX_pid.diff = gyroX_pid.error - gyroX_pid.last_error;
                 motor_delta.Droll = pidP_list[1].kp*(gyroX_pid.error + pidP_list[1].ki*gyroX_pid.integ + pidP_list[1].kd*gyroX_pid.diff);
                 //printf("motor_delta.Droll : %f ", motor_delta.Droll);
@@ -588,16 +575,16 @@ static void control_task(void *arg)
                 {
                     pitch_pid.integ = 0;
                 }
+                if(pitch_pid.integ>2)
+                {
+                    pitch_pid.integ = 2;
+                }
                 pitch_pid.diff = (pitch_pid.error - pitch_pid.last_error);
                 Desire_attitude.gyroY = pidP_list[2].kp*(pitch_pid.error + pidP_list[2].ki*pitch_pid.integ + pidP_list[2].kd*pitch_pid.diff);
                 //gyroY
                 gyroY_pid.last_error = gyroY_pid.error;
                 gyroY_pid.error = Desire_attitude.gyroY - PYHdata.gyroY;
-                gyroY_pid.integ +=  gyroY_pid.error;
-                if(gyroY_pid.error > 0.5 || gyroY_pid.error < -0.5)
-                {
-                    gyroY_pid.integ = 0;
-                }
+                gyroY_pid.integ = pitch_pid.error;
                 gyroY_pid.diff = gyroY_pid.error - gyroY_pid.last_error;
                 motor_delta.Dpitch = pidP_list[3].kp*(gyroY_pid.error + pidP_list[3].ki*gyroY_pid.integ + pidP_list[3].kd*gyroY_pid.diff);
                 //printf("motor_delta.Dpitch : %f\n", motor_delta.Dpitch);
@@ -606,28 +593,37 @@ static void control_task(void *arg)
                 gyroZ_pid.last_error = gyroZ_pid.error;
                 gyroZ_pid.error = Desire_attitude.gyroZ - PYHdata.gyroZ;
                 gyroZ_pid.integ += gyroZ_pid.error;
-                if(gyroZ_pid.error > 0.5 || gyroZ_pid.error < -0.5)
+                if(gyroZ_pid.error > 0.8 || gyroZ_pid.error < -0.8)
                 {
                     gyroZ_pid.integ = 0;
+                }
+                if(gyroZ_pid.integ>5)
+                {
+                    gyroZ_pid.integ = 5;
                 }
                 gyroZ_pid.diff = gyroZ_pid.error - gyroZ_pid.last_error;
                 motor_delta.Dyaw = pidP_list[4].kp*(gyroZ_pid.error + pidP_list[4].ki*gyroZ_pid.integ + pidP_list[4].kd*gyroZ_pid.diff);
                 //printf("motor_delta.Dyaw : %f\n", motor_delta.Dyaw);
                 //throttle
-                throttle_pid.last_error = throttle_pid.error;
-                throttle_pid.error = Desire_attitude.throttle - PYHdata.accelZ;
-                throttle_pid.integ += throttle_pid.error;
-                if(throttle_pid.error > 0.5 || throttle_pid.error < -0.5)
-                {
-                    throttle_pid.integ = 0;
-                }
-                throttle_pid.diff = throttle_pid.error - throttle_pid.last_error;
-                motor_delta.throttle = pidP_list[5].kp*(throttle_pid.error + pidP_list[5].ki*throttle_pid.integ + pidP_list[5].kd*throttle_pid.diff);
+                // throttle_pid.last_error = throttle_pid.error;
+                // throttle_pid.error = Desire_attitude.throttle - PYHdata.accelZ;
+                // throttle_pid.integ += throttle_pid.error;
+                // if(throttle_pid.error > 0.5 || throttle_pid.error < -0.5)
+                // {
+                //     throttle_pid.integ = 0;
+                // }
+                // throttle_pid.diff = throttle_pid.error - throttle_pid.last_error;
+                // motor_delta.throttle = pidP_list[5].kp*(throttle_pid.error + pidP_list[5].ki*throttle_pid.integ + pidP_list[5].kd*throttle_pid.diff);
+                motor_delta.throttle = Desire_attitude.throttle;
                 ///---------------------///
-                MOUT.motor_1 = (motor_delta.KT*motor_delta.throttle - motor_delta.KR*motor_delta.Droll + motor_delta.KP*motor_delta.Dpitch + motor_delta.KY*motor_delta.Dyaw)*410*0.9/1600+451;
-                MOUT.motor_2 = (motor_delta.KT*motor_delta.throttle + motor_delta.KR*motor_delta.Droll - motor_delta.KP*motor_delta.Dpitch + motor_delta.KY*motor_delta.Dyaw)*410*0.9/1600+451;
-                MOUT.motor_3 = (motor_delta.KT*motor_delta.throttle + motor_delta.KR*motor_delta.Droll + motor_delta.KP*motor_delta.Dpitch - motor_delta.KY*motor_delta.Dyaw)*410*0.9/1600+451;
-                MOUT.motor_4 = (motor_delta.KT*motor_delta.throttle - motor_delta.KR*motor_delta.Droll - motor_delta.KP*motor_delta.Dpitch - motor_delta.KY*motor_delta.Dyaw)*410*0.9/1600+451;
+                motor_percent[0] = motor_delta.KT*motor_delta.throttle - motor_delta.KR*motor_delta.Droll + motor_delta.KP*motor_delta.Dpitch - motor_delta.KY*motor_delta.Dyaw;
+                motor_percent[1] = motor_delta.KT*motor_delta.throttle + motor_delta.KR*motor_delta.Droll - motor_delta.KP*motor_delta.Dpitch - motor_delta.KY*motor_delta.Dyaw;
+                motor_percent[2] = motor_delta.KT*motor_delta.throttle + motor_delta.KR*motor_delta.Droll + motor_delta.KP*motor_delta.Dpitch + motor_delta.KY*motor_delta.Dyaw;
+                motor_percent[3] = motor_delta.KT*motor_delta.throttle - motor_delta.KR*motor_delta.Droll - motor_delta.KP*motor_delta.Dpitch + motor_delta.KY*motor_delta.Dyaw;
+                MOUT.motor_1 = (motor_delta.KT*motor_delta.throttle - motor_delta.KR*motor_delta.Droll + motor_delta.KP*motor_delta.Dpitch - motor_delta.KY*motor_delta.Dyaw)*410+410;
+                MOUT.motor_2 = (motor_delta.KT*motor_delta.throttle + motor_delta.KR*motor_delta.Droll - motor_delta.KP*motor_delta.Dpitch - motor_delta.KY*motor_delta.Dyaw)*410+410;
+                MOUT.motor_3 = (motor_delta.KT*motor_delta.throttle + motor_delta.KR*motor_delta.Droll + motor_delta.KP*motor_delta.Dpitch + motor_delta.KY*motor_delta.Dyaw)*410+410;
+                MOUT.motor_4 = (motor_delta.KT*motor_delta.throttle - motor_delta.KR*motor_delta.Droll - motor_delta.KP*motor_delta.Dpitch + motor_delta.KY*motor_delta.Dyaw)*410+410;
                 if(MOUT.motor_1>820){
                     MOUT.motor_1 = 820;
                 }
@@ -677,7 +673,10 @@ static void control_task(void *arg)
         }
         int ms_clock = clock();
         // printf("%d, %f--%f, %f--%f, %f--%f\n",ms_clock, PYHdata.gyroX, Desire_attitude.roll, PYHdata.gyroY, Desire_attitude.pitch, PYHdata.gyroZ, Desire_attitude.gyroZ);
-        printf("%d, %f, %f, %f, %f, %f, %f\n",ms_clock, PYHdata.accelX, PYHdata.accelY, PYHdata.accelZ, PYHdata.gyroX, PYHdata.gyroY, PYHdata.gyroZ);
+        // printf("%d, %f, %f, %f, %f, %f, %f, %f\n",ms_clock, Desire_attitude.roll, Desire_attitude.pitch, Desire_attitude.gyroZ, Desire_attitude.throttle, motor_delta.Droll, motor_delta.Dpitch, motor_delta.Dyaw);
+        // printf("%8d, %8f, %8f, %8f, %8f, %8f, %8f\n",ms_clock, Desire_attitude.gyroX, Desire_attitude.gyroY, Desire_attitude.gyroZ, motor_delta.Droll, motor_delta.Dpitch, motor_delta.Dyaw);
+        printf("%d, %f, %f, %f, %f\n", ms_clock, motor_percent[0], motor_percent[1], motor_percent[2], motor_percent[3]);
+        // printf("%d, %d, %d, %d, %d\n",ms_clock, MOUT.motor_1, MOUT.motor_2, MOUT.motor_3, MOUT.motor_4);
         vTaskDelay(10/portTICK_PERIOD_MS);
     }
 }
