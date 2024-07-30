@@ -2,10 +2,10 @@
 
 extern struct AccelGyroData_int32_t OFFSET_RAW;
 extern uint8_t RC_CHECK;
-extern float G;
-extern float PI;
-extern float accel_scale;
-extern float gyro_scale;
+extern double G;
+extern double PI;
+extern double accel_scale;
+extern double gyro_scale;
 extern int YAW_CAL;
 
 //uint8_t list3[3]={0};
