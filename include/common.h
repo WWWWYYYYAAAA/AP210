@@ -7,7 +7,7 @@
 #define PWM_CHANNEL_NUM 8
 //imu_param
 #define MPU_ADDR 0x68
-#define HMC5883_ADDR 0X3C
+#define HMC5883_ADDR 0X1E
 #define CALIB_TIMES 100
 
 struct AccelGyroData_t
@@ -35,15 +35,15 @@ struct AccelGyroData_int32_t
 
 struct AccelGyroPHYSICSData
 {
-    double accelX;
-    double accelY;
-    double accelZ;
-    double gyroX;
-    double gyroY;
-    double gyroZ;
-    double roll;
-    double pitch;
-    double yaw;
+    float accelX;
+    float accelY;
+    float accelZ;
+    float gyroX;
+    float gyroY;
+    float gyroZ;
+    float roll;
+    float pitch;
+    float yaw;
 };
 
 //uint16_t out_cha[PWM_CHANNEL_NUM] = {0};
@@ -75,21 +75,21 @@ typedef struct sbus_channel_16{
 }SBUS;
 
 typedef struct attitude{
-    double gyroX;
-    double gyroY;
-    double gyroZ;
-    double roll;
-    double pitch;
-    double yaw; 
-    double throttle;
+    float gyroX;
+    float gyroY;
+    float gyroZ;
+    float roll;
+    float pitch;
+    float yaw; 
+    float throttle;
 }Attitude;
 
 typedef struct motor_delta{
-    double throttle;
-    double Droll;
-    double Dpitch;
-    double Dyaw;
-    double KT, KR, KP, KY;
+    float throttle;
+    float Droll;
+    float Dpitch;
+    float Dyaw;
+    float KT, KR, KP, KY;
 }DMotor;
 
 /*
@@ -101,17 +101,17 @@ typedef struct motor_delta{
 
 typedef struct pidparam
 {
-    double kp;
-    double ki;
-    double kd;
+    float kp;
+    float ki;
+    float kd;
 }PID_Param;
 
 typedef struct pid_element
 {
-    double error;
-    double integ;
-    double diff;
-    double last_error;
+    float error;
+    float integ;
+    float diff;
+    float last_error;
 }PID_Element;
 
 #endif

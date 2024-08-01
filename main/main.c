@@ -27,10 +27,10 @@
 SBUS RC_DATA = {0};
 struct AccelGyroData_int32_t OFFSET_RAW = {0, 0, 0,-499 ,139 ,90};//{-39, -167, 190,-499 ,139 ,90};
 uint8_t RC_CHECK = 63;
-double G = 9.80665;
-double PI = 3.1415926535;
-double accel_scale=16384;
-double gyro_scale=7509.872412338726;
+float G = 9.80665;
+float PI = 3.1415926535;
+float accel_scale=16384;
+float gyro_scale=7509.872412338726;
 int YAW_CAL = 0;
 struct AccelGyroPHYSICSData PYHdata;
 
@@ -52,7 +52,7 @@ PID_Element gyroZ_pid = {0};
 PID_Element throttle_pid = {0};
 DMotor motor_delta = {0, 0, 0, 0, 1, 1, 1, 1};   //ROLL PITCH YAW
 
-double hover_percentage = 0.3;
+float hover_percentage = 0.3;
 uint8_t sw1=0, sw2=0;
 
 char log_path[32] = {0};
@@ -264,7 +264,13 @@ void app_main(void)
     printf("INITIALIZING...\n");
     //user_partition_init();
     HW_init();
-    mode_switch();
+    while (1)
+    {
+        int ms_clock = clock();
+        PYHdata  = get_PHYSICS_Data_with_Kalman(0.01);
+        printf("%d %.5f %.5f %.5f\n", ms_clock, PYHdata.roll, PYHdata.pitch, PYHdata.yaw);
+        vTaskDelay(10/portTICK_PERIOD_MS);    
+    }
 }
 
 void HW_init()
@@ -340,21 +346,24 @@ void HW_init()
     uint8_t I2C_SLV0_CTRL[] = {0x27, 0b10000110};
     uint8_t DELAY_CTRL[] = {0x67, 0b00000001};
     //hmc5883l
-    // write_register(MPU_ADDR, MST_EN1);
-    // vTaskDelay(100/portTICK_PERIOD_MS);
-    // write_register(MPU_ADDR, BYPASS_EN1);
-    // printf("confa %d\n", read_register(0x1E, 0x00));
-    // printf("confb %d\n", read_register(0x1E, 0x01));
-    // printf("confc %d\n", read_register(0x1E, 0x04));
-    // uint8_t a_config = {0x00, 0X58};
-    // uint8_t b_config = {0x01, 0X40};
-    // uint8_t mode_config = {0x02, 0X00};
-    // write_register(0x1E, a_config);
-    // write_register(0x1E, b_config);
-    // write_register(0x1E, mode_config);
-    uint8_t confa[] = {99, 0x00, 0X18};
-    uint8_t confb[] = {99, 0x01, 0X60};
-    uint8_t confc[] = {99, 0x02, 0X00};
+    write_register(MPU_ADDR, MST_EN1);
+    vTaskDelay(100/portTICK_PERIOD_MS);
+    write_register(MPU_ADDR, BYPASS_EN1);
+ 
+    uint8_t a_config = {0x00, 0X58};
+    uint8_t b_config = {0x01, 0X40};
+    uint8_t mode_config = {0x02, 0X00};
+    write_register(0x1E, a_config);
+    write_register(0x1E, b_config);
+    write_register(0x1E, mode_config);
+    
+   printf("confa %d\n", read_register(0x1E, 0x00));
+    printf("confb %d\n", read_register(0x1E, 0x01));
+    printf("confc %d\n", read_register(0x1E, 0x04));
+
+    // uint8_t confa[] = {99, 0x00, 0X18};
+    // uint8_t confb[] = {99, 0x01, 0X60};
+    // uint8_t confc[] = {99, 0x02, 0X00};
     //mpu6050
     write_register(MPU_ADDR, MST_EN2);
     vTaskDelay(100/portTICK_PERIOD_MS);
@@ -393,12 +402,14 @@ void HW_init()
     gyro_scale=7509.872412338726; //+-250 /rad
 
     //init HMC5883L
-    // uint8_t reg_A[] = {0, 0b01110000};
-    // uint8_t reg_B[] = {1, 0b00100000};
+    // printf("t0\n");
+    // uint8_t reg_A[] = {0, 0X70};
+    // uint8_t reg_B[] = {1, 0X20};
     // uint8_t reg_mod[] = {2, 0b00000000};
     // write_register(HMC5883_ADDR, reg_A);
     // write_register(HMC5883_ADDR, reg_B);
     // write_register(HMC5883_ADDR, reg_mod);
+    // printf("t05883\n");
     // init BMP180
     //不想配了，反正不准
     //caliberate the mpu6050
@@ -416,39 +427,25 @@ void HW_init()
 
 uint8_t mode_switch()
 {
-    sw1 = gpio_get_level(2);
-    sw2 = gpio_get_level(1);
-    if(!sw1 && !sw2)
+    // sw1 = gpio_get_level(2);
+    // sw2 = gpio_get_level(1);
+    if(1)
     {
-        FAT_regular_init();
-        init_file();
+        // FAT_regular_init();
+        // init_file();
         //test_json();
         printf("INITIALIZATION COMPLETED\n");
         vTaskDelay(500/portTICK_PERIOD_MS);
+        printf("t1\n");
         // xTaskCreate(rx_task, "uart_rx_task", 1024*4, NULL, 1, NULL);
         // xTaskCreate(motor_out_task, "motor_out_task", 1024*4, NULL, 1, NULL);
         // xTaskCreate(get_imu_task, "get_imu_task", 1024*4, NULL, 8, NULL);
         // xTaskCreate(PID_task, "PID_task", 1024*4,  NULL, 1, NULL);
         // xTaskCreate(save_data_task, "save_data_task", 1024*4,  NULL, 4, NULL);
         // flight_task(NULL);
-        xTaskCreate(control_task, "control_task", 1024*16,  NULL, 1, NULL);
-        xTaskCreate(get_data_task, "get_data_task", 1024*8,  NULL, 1, NULL);
+        xTaskCreate(control_task, "control_task", 1024*2,  NULL, 1, NULL);
+        // xTaskCreate(get_data_task, "get_data_task", 1024*8,  NULL, 1, NULL);
         
-    }
-    else if(sw1 && !sw2)
-    {
-        init_myfatfs();
-    }
-    else if(!sw1 && sw2)
-    {
-        init_myfatfs_sdmmc();
-    }
-    else if(sw1 && sw2)
-    {
-        FAT_format_init();
-        FAT_unmount();
-        vTaskDelay(1000/portTICK_PERIOD_MS);
-        init_myfatfs();
     }
     return 0;
 }
@@ -499,7 +496,7 @@ static void get_data_task(void *arg)
     return;
 }
 
-double platform(int data_raw, int mid, int width, double kout)
+float platform(int data_raw, int mid, int width, float kout)
 {
     if(data_raw - mid + width < 0)
     {
@@ -522,165 +519,167 @@ static void control_task(void *arg)
     MOTOR  MOUT= {410, 410, 410, 410};
     u_int8_t flag_start_check = 1;
     PYHdata = get_PHYSICS_Data();
-    double motor_percent[4];
+    float motor_percent[4];
     while (1)
     {
-        PYHdata = get_PHYSICS_Data();
+        // PYHdata = get_PHYSICS_Data();
 
         //motor_out
-        if(RC_DATA.CH7 <= 400 && RC_CHECK == 0){
-            if(flag_start_check == 1 && RC_DATA.CH3 < 240)
-            {
-                flag_start_check = 0;
-            }
-            else if(flag_start_check == 1 && RC_DATA.CH3 >= 240)
-            {
-                printf("UNABLE TO DISARM, CHECK THE Throttle Channel\n");
-            }
-            else
-            {
-                Desire_attitude.roll = platform(RC_DATA.CH1, 1000, 40, PI/3200);
-                Desire_attitude.pitch = -platform(RC_DATA.CH2, 1000, 40, PI/3200);
-                Desire_attitude.gyroZ = -platform(RC_DATA.CH4, 1000, 40, PI/1600);
-                Desire_attitude.throttle = 0.9 * (RC_DATA.CH3-200)/1600 + 0.1;
-                //rolls
-                roll_pid.last_error = roll_pid.error;
-                roll_pid.error = Desire_attitude.roll - PYHdata.roll;
-                roll_pid.integ += roll_pid.error;
-                if(roll_pid.error < 0.2 && roll_pid.error > -0.2)
-                {
-                    roll_pid.integ = 0;
-                }
-                if(pidP_list[0].kp*pidP_list[0].ki*roll_pid.integ>0.5)
-                {
-                    gyroZ_pid.integ = 0.5/(pidP_list[0].kp*pidP_list[0].ki);
-                }
-                roll_pid.diff = (roll_pid.error - roll_pid.last_error);
-                //Desire_attitude.gyroX 
-                motor_delta.Droll = pidP_list[0].kp*(roll_pid.error + pidP_list[0].ki*roll_pid.integ + pidP_list[0].kd*roll_pid.diff);
-                //printf("Desire_attitude.roll: %3.5f PYHdata.roll: %3.5f roll_pid.error: %3.5f\n", Desire_attitude.roll, PYHdata.roll, roll_pid.error);
-                //printf(" Desire_attitude.gyroX: %f\n",  Desire_attitude.gyroX);
-                //gyroX
+        // if(RC_DATA.CH7 <= 400 && RC_CHECK == 0){
+        //     if(flag_start_check == 1 && RC_DATA.CH3 < 240)
+        //     {
+        //         flag_start_check = 0;
+        //     }
+        //     else if(flag_start_check == 1 && RC_DATA.CH3 >= 240)
+        //     {
+        //         printf("UNABLE TO DISARM, CHECK THE Throttle Channel\n");
+        //     }
+        //     else
+        //     {
+        //         Desire_attitude.roll = platform(RC_DATA.CH1, 1000, 40, PI/3200);
+        //         Desire_attitude.pitch = -platform(RC_DATA.CH2, 1000, 40, PI/3200);
+        //         Desire_attitude.gyroZ = -platform(RC_DATA.CH4, 1000, 40, PI/1600);
+        //         Desire_attitude.throttle = 0.9 * (RC_DATA.CH3-200)/1600 + 0.1;
+        //         //rolls
+        //         roll_pid.last_error = roll_pid.error;
+        //         roll_pid.error = Desire_attitude.roll - PYHdata.roll;
+        //         roll_pid.integ += roll_pid.error;
+        //         if(roll_pid.error < 0.2 && roll_pid.error > -0.2)
+        //         {
+        //             roll_pid.integ = 0;
+        //         }
+        //         if(pidP_list[0].kp*pidP_list[0].ki*roll_pid.integ>0.5)
+        //         {
+        //             gyroZ_pid.integ = 0.5/(pidP_list[0].kp*pidP_list[0].ki);
+        //         }
+        //         roll_pid.diff = (roll_pid.error - roll_pid.last_error);
+        //         //Desire_attitude.gyroX 
+        //         motor_delta.Droll = pidP_list[0].kp*(roll_pid.error + pidP_list[0].ki*roll_pid.integ + pidP_list[0].kd*roll_pid.diff);
+        //         //printf("Desire_attitude.roll: %3.5f PYHdata.roll: %3.5f roll_pid.error: %3.5f\n", Desire_attitude.roll, PYHdata.roll, roll_pid.error);
+        //         //printf(" Desire_attitude.gyroX: %f\n",  Desire_attitude.gyroX);
+        //         //gyroX
                 
-                // gyroX_pid.last_error = gyroX_pid.error;
-                // gyroX_pid.error = Desire_attitude.gyroX - PYHdata.gyroX;
-                // gyroX_pid.integ = roll_pid.error;  
-                // gyroX_pid.diff = gyroX_pid.error - gyroX_pid.last_error;
-                // motor_delta.Droll = pidP_list[1].kp*(gyroX_pid.error + pidP_list[1].ki*gyroX_pid.integ + pidP_list[1].kd*gyroX_pid.diff);
-                //printf("motor_delta.Droll : %f ", motor_delta.Droll);
-                //pitch
+        //         // gyroX_pid.last_error = gyroX_pid.error;
+        //         // gyroX_pid.error = Desire_attitude.gyroX - PYHdata.gyroX;
+        //         // gyroX_pid.integ = roll_pid.error;  
+        //         // gyroX_pid.diff = gyroX_pid.error - gyroX_pid.last_error;
+        //         // motor_delta.Droll = pidP_list[1].kp*(gyroX_pid.error + pidP_list[1].ki*gyroX_pid.integ + pidP_list[1].kd*gyroX_pid.diff);
+        //         //printf("motor_delta.Droll : %f ", motor_delta.Droll);
+        //         //pitch
                 
-                pitch_pid.last_error = pitch_pid.error;
-                pitch_pid.error = Desire_attitude.pitch - PYHdata.pitch;
-                pitch_pid.integ += pitch_pid.error;
-                if(pitch_pid.error < 0.2 && pitch_pid.error > -0.2)
-                {
-                    pitch_pid.integ = 0;
-                }
-                if(pidP_list[2].kp*pidP_list[2].ki*pitch_pid.integ>0.5)
-                {
-                    pitch_pid.integ = 0.5/(pidP_list[2].kp*pidP_list[2].ki);
-                }
-                pitch_pid.diff = (pitch_pid.error - pitch_pid.last_error);
-                //Desire_attitude.gyroY 
-                motor_delta.Dpitch = pidP_list[2].kp*(pitch_pid.error + pidP_list[2].ki*pitch_pid.integ + pidP_list[2].kd*pitch_pid.diff);
-                //gyroY
-                // gyroY_pid.last_error = gyroY_pid.error;
-                // gyroY_pid.error = Desire_attitude.gyroY - PYHdata.gyroY;
-                // gyroY_pid.integ = pitch_pid.error;
-                // gyroY_pid.diff = gyroY_pid.error - gyroY_pid.last_error;
-                // motor_delta.Dpitch = pidP_list[3].kp*(gyroY_pid.error + pidP_list[3].ki*gyroY_pid.integ + pidP_list[3].kd*gyroY_pid.diff);
-                //printf("motor_delta.Dpitch : %f\n", motor_delta.Dpitch);
-                //gyroZ
+        //         pitch_pid.last_error = pitch_pid.error;
+        //         pitch_pid.error = Desire_attitude.pitch - PYHdata.pitch;
+        //         pitch_pid.integ += pitch_pid.error;
+        //         if(pitch_pid.error < 0.2 && pitch_pid.error > -0.2)
+        //         {
+        //             pitch_pid.integ = 0;
+        //         }
+        //         if(pidP_list[2].kp*pidP_list[2].ki*pitch_pid.integ>0.5)
+        //         {
+        //             pitch_pid.integ = 0.5/(pidP_list[2].kp*pidP_list[2].ki);
+        //         }
+        //         pitch_pid.diff = (pitch_pid.error - pitch_pid.last_error);
+        //         //Desire_attitude.gyroY 
+        //         motor_delta.Dpitch = pidP_list[2].kp*(pitch_pid.error + pidP_list[2].ki*pitch_pid.integ + pidP_list[2].kd*pitch_pid.diff);
+        //         //gyroY
+        //         // gyroY_pid.last_error = gyroY_pid.error;
+        //         // gyroY_pid.error = Desire_attitude.gyroY - PYHdata.gyroY;
+        //         // gyroY_pid.integ = pitch_pid.error;
+        //         // gyroY_pid.diff = gyroY_pid.error - gyroY_pid.last_error;
+        //         // motor_delta.Dpitch = pidP_list[3].kp*(gyroY_pid.error + pidP_list[3].ki*gyroY_pid.integ + pidP_list[3].kd*gyroY_pid.diff);
+        //         //printf("motor_delta.Dpitch : %f\n", motor_delta.Dpitch);
+        //         //gyroZ
 
-                gyroZ_pid.last_error = gyroZ_pid.error;
-                gyroZ_pid.error = Desire_attitude.gyroZ - PYHdata.gyroZ;
-                gyroZ_pid.integ += gyroZ_pid.error;
-                if(gyroZ_pid.error > 0.8 || gyroZ_pid.error < -0.8)
-                {
-                    gyroZ_pid.integ = 0;
-                }
-                if(gyroZ_pid.integ>5)
-                {
-                    gyroZ_pid.integ = 5;
-                }
-                gyroZ_pid.diff = gyroZ_pid.error - gyroZ_pid.last_error;
-                motor_delta.Dyaw = pidP_list[4].kp*(gyroZ_pid.error + pidP_list[4].ki*gyroZ_pid.integ + pidP_list[4].kd*gyroZ_pid.diff);
-                //printf("motor_delta.Dyaw : %f\n", motor_delta.Dyaw);
-                //throttle
-                // throttle_pid.last_error = throttle_pid.error;
-                // throttle_pid.error = Desire_attitude.throttle - PYHdata.accelZ;
-                // throttle_pid.integ += throttle_pid.error;
-                // if(throttle_pid.error > 0.5 || throttle_pid.error < -0.5)
-                // {
-                //     throttle_pid.integ = 0;
-                // }
-                // throttle_pid.diff = throttle_pid.error - throttle_pid.last_error;
-                // motor_delta.throttle = pidP_list[5].kp*(throttle_pid.error + pidP_list[5].ki*throttle_pid.integ + pidP_list[5].kd*throttle_pid.diff);
-                motor_delta.throttle = Desire_attitude.throttle;
-                ///---------------------///
-                motor_percent[0] = motor_delta.KT*motor_delta.throttle - motor_delta.KR*motor_delta.Droll + motor_delta.KP*motor_delta.Dpitch - motor_delta.KY*motor_delta.Dyaw;
-                motor_percent[1] = motor_delta.KT*motor_delta.throttle + motor_delta.KR*motor_delta.Droll - motor_delta.KP*motor_delta.Dpitch - motor_delta.KY*motor_delta.Dyaw;
-                motor_percent[2] = motor_delta.KT*motor_delta.throttle + motor_delta.KR*motor_delta.Droll + motor_delta.KP*motor_delta.Dpitch + motor_delta.KY*motor_delta.Dyaw;
-                motor_percent[3] = motor_delta.KT*motor_delta.throttle - motor_delta.KR*motor_delta.Droll - motor_delta.KP*motor_delta.Dpitch + motor_delta.KY*motor_delta.Dyaw;
-                MOUT.motor_1 = (motor_delta.KT*motor_delta.throttle - motor_delta.KR*motor_delta.Droll + motor_delta.KP*motor_delta.Dpitch - motor_delta.KY*motor_delta.Dyaw)*410+410;
-                MOUT.motor_2 = (motor_delta.KT*motor_delta.throttle + motor_delta.KR*motor_delta.Droll - motor_delta.KP*motor_delta.Dpitch - motor_delta.KY*motor_delta.Dyaw)*410+410;
-                MOUT.motor_3 = (motor_delta.KT*motor_delta.throttle + motor_delta.KR*motor_delta.Droll + motor_delta.KP*motor_delta.Dpitch + motor_delta.KY*motor_delta.Dyaw)*410+410;
-                MOUT.motor_4 = (motor_delta.KT*motor_delta.throttle - motor_delta.KR*motor_delta.Droll - motor_delta.KP*motor_delta.Dpitch + motor_delta.KY*motor_delta.Dyaw)*410+410;
-                if(MOUT.motor_1>820){
-                    MOUT.motor_1 = 820;
-                }
-                else if(MOUT.motor_1<451){
-                    MOUT.motor_1 = 451;
-                }
-                    if(MOUT.motor_2>820){
-                    MOUT.motor_2 = 820;
-                }
-                else if(MOUT.motor_2<451){
-                    MOUT.motor_2 = 451;
-                }
-                    if(MOUT.motor_3>820){
-                    MOUT.motor_3 = 820;
-                }
-                else if(MOUT.motor_3<451){
-                    MOUT.motor_3 = 451;
-                }
-                    if(MOUT.motor_4>820){
-                    MOUT.motor_4 = 820;
-                }
-                else if(MOUT.motor_4<451){
-                    MOUT.motor_4 = 451;
-                }
-                ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, MOUT.motor_1);
-                ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
-                ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, MOUT.motor_2);
-                ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
-                ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2, MOUT.motor_3);
-                ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2);
-                ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_3, MOUT.motor_4);
-                ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_3);
-                //printf("%d %d %d %d\n", MOUT.motor_1, MOUT.motor_2, MOUT.motor_3, MOUT.motor_4);
-            }
-        }
-        else
-        {
-            flag_start_check = 1;
-            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 410);
-            ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
-            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, 410);
-            ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
-            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2, 410);
-            ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2);
-            ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_3, 410);
-            ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_3);
-        }
+        //         gyroZ_pid.last_error = gyroZ_pid.error;
+        //         gyroZ_pid.error = Desire_attitude.gyroZ - PYHdata.gyroZ;
+        //         gyroZ_pid.integ += gyroZ_pid.error;
+        //         if(gyroZ_pid.error > 0.8 || gyroZ_pid.error < -0.8)
+        //         {
+        //             gyroZ_pid.integ = 0;
+        //         }
+        //         if(gyroZ_pid.integ>5)
+        //         {
+        //             gyroZ_pid.integ = 5;
+        //         }
+        //         gyroZ_pid.diff = gyroZ_pid.error - gyroZ_pid.last_error;
+        //         motor_delta.Dyaw = pidP_list[4].kp*(gyroZ_pid.error + pidP_list[4].ki*gyroZ_pid.integ + pidP_list[4].kd*gyroZ_pid.diff);
+        //         //printf("motor_delta.Dyaw : %f\n", motor_delta.Dyaw);
+        //         //throttle
+        //         // throttle_pid.last_error = throttle_pid.error;
+        //         // throttle_pid.error = Desire_attitude.throttle - PYHdata.accelZ;
+        //         // throttle_pid.integ += throttle_pid.error;
+        //         // if(throttle_pid.error > 0.5 || throttle_pid.error < -0.5)
+        //         // {
+        //         //     throttle_pid.integ = 0;
+        //         // }
+        //         // throttle_pid.diff = throttle_pid.error - throttle_pid.last_error;
+        //         // motor_delta.throttle = pidP_list[5].kp*(throttle_pid.error + pidP_list[5].ki*throttle_pid.integ + pidP_list[5].kd*throttle_pid.diff);
+        //         motor_delta.throttle = Desire_attitude.throttle;
+        //         ///---------------------///
+        //         motor_percent[0] = motor_delta.KT*motor_delta.throttle - motor_delta.KR*motor_delta.Droll + motor_delta.KP*motor_delta.Dpitch - motor_delta.KY*motor_delta.Dyaw;
+        //         motor_percent[1] = motor_delta.KT*motor_delta.throttle + motor_delta.KR*motor_delta.Droll - motor_delta.KP*motor_delta.Dpitch - motor_delta.KY*motor_delta.Dyaw;
+        //         motor_percent[2] = motor_delta.KT*motor_delta.throttle + motor_delta.KR*motor_delta.Droll + motor_delta.KP*motor_delta.Dpitch + motor_delta.KY*motor_delta.Dyaw;
+        //         motor_percent[3] = motor_delta.KT*motor_delta.throttle - motor_delta.KR*motor_delta.Droll - motor_delta.KP*motor_delta.Dpitch + motor_delta.KY*motor_delta.Dyaw;
+        //         MOUT.motor_1 = (motor_delta.KT*motor_delta.throttle - motor_delta.KR*motor_delta.Droll + motor_delta.KP*motor_delta.Dpitch - motor_delta.KY*motor_delta.Dyaw)*410+410;
+        //         MOUT.motor_2 = (motor_delta.KT*motor_delta.throttle + motor_delta.KR*motor_delta.Droll - motor_delta.KP*motor_delta.Dpitch - motor_delta.KY*motor_delta.Dyaw)*410+410;
+        //         MOUT.motor_3 = (motor_delta.KT*motor_delta.throttle + motor_delta.KR*motor_delta.Droll + motor_delta.KP*motor_delta.Dpitch + motor_delta.KY*motor_delta.Dyaw)*410+410;
+        //         MOUT.motor_4 = (motor_delta.KT*motor_delta.throttle - motor_delta.KR*motor_delta.Droll - motor_delta.KP*motor_delta.Dpitch + motor_delta.KY*motor_delta.Dyaw)*410+410;
+        //         if(MOUT.motor_1>820){
+        //             MOUT.motor_1 = 820;
+        //         }
+        //         else if(MOUT.motor_1<451){
+        //             MOUT.motor_1 = 451;
+        //         }
+        //             if(MOUT.motor_2>820){
+        //             MOUT.motor_2 = 820;
+        //         }
+        //         else if(MOUT.motor_2<451){
+        //             MOUT.motor_2 = 451;
+        //         }
+        //             if(MOUT.motor_3>820){
+        //             MOUT.motor_3 = 820;
+        //         }
+        //         else if(MOUT.motor_3<451){
+        //             MOUT.motor_3 = 451;
+        //         }
+        //             if(MOUT.motor_4>820){
+        //             MOUT.motor_4 = 820;
+        //         }
+        //         else if(MOUT.motor_4<451){
+        //             MOUT.motor_4 = 451;
+        //         }
+        //         ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, MOUT.motor_1);
+        //         ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+        //         ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, MOUT.motor_2);
+        //         ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
+        //         ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2, MOUT.motor_3);
+        //         ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2);
+        //         ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_3, MOUT.motor_4);
+        //         ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_3);
+        //         //printf("%d %d %d %d\n", MOUT.motor_1, MOUT.motor_2, MOUT.motor_3, MOUT.motor_4);
+        //     }
+        // }
+        // else
+        // {
+        //     flag_start_check = 1;
+        //     ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, 410);
+        //     ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+        //     ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, 410);
+        //     ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
+        //     ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2, 410);
+        //     ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_2);
+        //     ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_3, 410);
+        //     ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_3);
+        // }
+        // printf("HMC8553l %d\n", (int)(int16_t)((read_register(HMC5883_ADDR, 0x03)<<8)+read_register(HMC5883_ADDR, 0x04)));
         int ms_clock = clock();
+        //printf("%d HMC8553l %d\n", ms_clock, (int)(int16_t)((read_register(HMC5883_ADDR, 0x03)<<8)+read_register(HMC5883_ADDR, 0x04)));
         // printf("%d, %f--%f, %f--%f, %f--%f\n",ms_clock, PYHdata.gyroX, Desire_attitude.roll, PYHdata.gyroY, Desire_attitude.pitch, PYHdata.gyroZ, Desire_attitude.gyroZ);
         // printf("%d, %f, %f, %f\n",ms_clock, PYHdata.roll, PYHdata.pitch, PYHdata.gyroZ);
-        printf("%d, %.5f, %.5f, %.5f, %.5f, %.5f, %.5f, %.5f\n",ms_clock, motor_percent[0], motor_percent[1], motor_percent[2], motor_percent[3], motor_delta.Droll, motor_delta.Dpitch, motor_delta.Dyaw);
+        // printf("%d, %.5f, %.5f, %.5f, %.5f, %.5f, %.5f, %.5f\n",ms_clock, motor_percent[0], motor_percent[1], motor_percent[2], motor_percent[3], motor_delta.Droll, motor_delta.Dpitch, motor_delta.Dyaw);
         // printf("%8d, %8f, %8f, %8f, %8f, %8f, %8f\n",ms_clock, Desire_attitude.gyroX, Desire_attitude.gyroY, Desire_attitude.gyroZ, motor_delta.Droll, motor_delta.Dpitch, motor_delta.Dyaw);
         // printf("%d, %f, %f, %f, %f\n", ms_clock, motor_percent[0], motor_percent[1], motor_percent[2], motor_percent[3]);
         // printf("%d, %d, %d, %d, %d\n",ms_clock, MOUT.motor_1, MOUT.motor_2, MOUT.motor_3, MOUT.motor_4);
-        vTaskDelay(10/portTICK_PERIOD_MS);
+        vTaskDelay(50/portTICK_PERIOD_MS);
     }
 }
