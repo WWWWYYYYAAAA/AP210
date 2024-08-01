@@ -27,10 +27,10 @@
 SBUS RC_DATA = {0};
 struct AccelGyroData_int32_t OFFSET_RAW = {0, 0, 0,-499 ,139 ,90};//{-39, -167, 190,-499 ,139 ,90};
 uint8_t RC_CHECK = 63;
-double G = 9.80665;
-double PI = 3.1415926535;
-double accel_scale=16384;
-double gyro_scale=7509.872412338726;
+float G = 9.80665;
+float PI = 3.1415926535;
+float accel_scale=16384;
+float gyro_scale=7509.872412338726;
 int YAW_CAL = 0;
 struct AccelGyroPHYSICSData PYHdata;
 
@@ -52,7 +52,7 @@ PID_Element gyroZ_pid = {0};
 PID_Element throttle_pid = {0};
 DMotor motor_delta = {0, 0, 0, 0, 1, 1, 1, 1};   //ROLL PITCH YAW
 
-double hover_percentage = 0.3;
+float hover_percentage = 0.3;
 uint8_t sw1=0, sw2=0;
 
 char log_path[32] = {0};
@@ -499,7 +499,7 @@ static void get_data_task(void *arg)
     return;
 }
 
-double platform(int data_raw, int mid, int width, double kout)
+float platform(int data_raw, int mid, int width, float kout)
 {
     if(data_raw - mid + width < 0)
     {
@@ -522,7 +522,7 @@ static void control_task(void *arg)
     MOTOR  MOUT= {410, 410, 410, 410};
     u_int8_t flag_start_check = 1;
     PYHdata = get_PHYSICS_Data();
-    double motor_percent[4];
+    float motor_percent[4];
     while (1)
     {
         PYHdata = get_PHYSICS_Data();
