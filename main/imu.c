@@ -215,7 +215,7 @@ struct AccelGyroPHYSICSData get_PHYSICS_Data_with_Kalman(float dt)
     {
         filter_init_flag = 0;
         phydataP.roll = phydataIN.roll;
-        phydataP.pitch = phydataIN.roll;
+        phydataP.pitch = phydataIN.pitch;
         phydataP.yaw = 0;
     }
     
@@ -228,9 +228,9 @@ struct AccelGyroPHYSICSData get_PHYSICS_Data_with_Kalman(float dt)
     phydataP.yaw = 0;
 
     //roll
-    static float Q_roll = 0.001;		//角度数据置信度，角度噪声的协方差
-    static float Q_gyroX  = 0.003;		//角速度数据置信度，角速度噪声的协方差  
-    static float R_roll = 0.5;			//加速度计测量噪声的协方差
+    static float Q_roll = 0.00003;		//角度数据置信度，角度噪声的协方差
+    static float Q_gyroX  = 0.00007;		//角速度数据置信度，角速度噪声的协方差  
+    static float R_roll = 1.38;			//加速度计测量噪声的协方差
     static float Q_gyroX_bias = 0;				//Q_bias:陀螺仪的偏差
     static float K_0_roll, K_1_roll;				//卡尔曼增益  K_0:用于计算最优估计值  K_1:用于计算最优估计值的偏差
     static float PP_roll[2][2] = { { 1, 0 },{ 0, 1 } };//过程协方差矩阵P，初始值为单位阵
@@ -251,13 +251,13 @@ struct AccelGyroPHYSICSData get_PHYSICS_Data_with_Kalman(float dt)
 	PP_roll[1][1] = PP_roll[1][1] - K_1_roll * PP_roll[0][1];
 
     //pitch
-    static float Q_pitch = 0.001;		//角度数据置信度，角度噪声的协方差
-    static float Q_gyroY  = 0.003;		//角速度数据置信度，角速度噪声的协方差  
-    static float R_pitch = 0.5;			//加速度计测量噪声的协方差
+    static float Q_pitch = 0.00003;		//角度数据置信度，角度噪声的协方差
+    static float Q_gyroY  = 0.0001;		//角速度数据置信度，角速度噪声的协方差  
+    static float R_pitch = 1.1;			//加速度计测量噪声的协方差
     static float Q_gyroY_bias = 0;				//Q_bias:陀螺仪的偏差
     static float K_0_pitch, K_1_pitch;				//卡尔曼增益  K_0:用于计算最优估计值  K_1:用于计算最优估计值的偏差
     static float PP_pitch[2][2] = { { 1, 0 },{ 0, 1 } };//过程协方差矩阵P，初始值为单位阵
-    phydataP.pitch += (phydataIN.gyroX - Q_gyroY_bias) * dt;
+    phydataP.pitch += (phydataIN.gyroY - Q_gyroY_bias) * dt;
     PP_pitch[0][0] = PP_pitch[0][0] + Q_pitch - (PP_pitch[0][1] + PP_pitch[1][0])*dt;
 	PP_pitch[0][1] = PP_pitch[0][1] - PP_pitch[1][1]*dt;
 	PP_pitch[1][0] = PP_pitch[1][0] - PP_pitch[1][1]*dt;
